@@ -1,0 +1,308 @@
+generator client {
+  provider = "prisma-client-js"
+  schemas  = ["public"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model clients {
+  id               String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  portalid         String         @unique @db.VarChar(20)
+  userid           String         @unique @db.Uuid
+  organization_id  String         @db.Uuid
+  first_name       String?        @db.VarChar(255)
+  last_name        String?        @db.VarChar(255)
+  email            String?        @db.VarChar(255)
+  phone            String?        @db.VarChar(20)
+  address          String?        @db.VarChar(250)
+  date_of_birth    DateTime?      @db.Date
+  is_valid         Boolean?       @default(true)
+  gender           gender?
+  occupation       String?        @db.VarChar(100)
+  emergencycontact String?        @db.VarChar(15)
+  created_at       DateTime?      @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime?      @default(now()) @db.Timestamptz(6)
+  appointments     appointments[]
+  organizations    organizations  @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users            users          @relation(fields: [userid], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model organization_applications {
+  id                 String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organization_name  String            @db.VarChar(255)
+  org_short_name     String            @db.VarChar(50)
+  address            String?
+  email              String            @db.VarChar(255)
+  phone              String?           @db.VarChar(20)
+  rejection_remarks  String?
+  created_at         DateTime?         @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime?         @default(now()) @db.Timestamptz(6)
+  is_valid           Boolean           @default(true)
+  trackingid         Int               @unique @default(autoincrement())
+  application_status ApplicationStatus @default(PENDING)
+  clientname         String?           @db.VarChar(100)
+}
+
+model organizations {
+  id                 String               @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name               String               @unique @db.VarChar(255)
+  created_at         DateTime?            @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime?            @default(now()) @db.Timestamptz(6)
+  is_valid           Boolean              @default(true)
+  is_complete        Boolean?             @default(false)
+  gstnumber          String?              @db.VarChar(100)
+  address            String?              @db.VarChar(100)
+  shortorgname       String?              @db.VarChar(20)
+  appointments       appointments[]
+  clients            clients[]
+  doctors            doctors[]
+  employees          employees[]
+  resources          resources[]
+  roles              roles[]
+  services           services[]
+  user_organizations user_organizations[]
+}
+
+model roles {
+  id              String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organization_id String            @db.Uuid
+  name            String            @db.VarChar(100)
+  description     String?
+  created_at      DateTime?         @default(now()) @db.Timestamptz(6)
+  is_valid        Boolean           @default(true)
+  is_admin        Boolean?          @default(false)
+  is_deletable    Boolean?          @default(true)
+  organizations   organizations     @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tabs_role_table tabs_role_table[]
+  user_roles      user_roles[]
+
+  @@unique([organization_id, name])
+}
+
+model user_organizations {
+  id              String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id         String        @db.Uuid
+  organization_id String        @db.Uuid
+  is_valid        Boolean       @default(true)
+  organizations   organizations @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users           users         @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user_roles      user_roles[]
+}
+
+model user_roles {
+  id                   String             @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_organization_id String             @db.Uuid
+  role_id              String             @db.Uuid
+  is_valid             Boolean            @default(true)
+  roles                roles              @relation(fields: [role_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user_organizations   user_organizations @relation(fields: [user_organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model users {
+  id                 String               @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  email              String               @db.VarChar(255)
+  password_hash      String
+  full_name          String?              @db.VarChar(255)
+  phone              String?              @db.VarChar(20)
+  created_at         DateTime?            @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime?            @default(now()) @db.Timestamptz(6)
+  last_login         DateTime?            @db.Timestamptz(6)
+  is_valid           Boolean              @default(true)
+  login_id           String?              @unique @db.VarChar(100)
+  clients            clients?
+  doctors            doctors?
+  employees          employees?
+  super_admins       super_admins?
+  user_organizations user_organizations[]
+}
+
+model Token {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  token     String
+  createdAt DateTime @default(now())
+}
+
+model tabs {
+  id              String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tab_name        String
+  tab_unique_name String            @unique
+  is_valid        Boolean?          @default(true)
+  tab_path        String?           @db.VarChar(255)
+  feature         feature[]
+  tabs_role_table tabs_role_table[]
+}
+
+model tabs_role_table {
+  id               String             @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tab_id           String             @db.Uuid
+  role_id          String             @db.Uuid
+  is_valid         Boolean?           @default(false)
+  feature_tab_role feature_tab_role[]
+  roles            roles              @relation(fields: [role_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_role")
+  tabs             tabs               @relation(fields: [tab_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_tab")
+}
+
+model feature {
+  id                  String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tab_id              String             @db.Uuid
+  feature_name        String
+  feature_unique_name String             @unique
+  is_valid            Boolean?           @default(true)
+  tabs                tabs               @relation(fields: [tab_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_tab_feature")
+  feature_tab_role    feature_tab_role[]
+}
+
+model feature_tab_role {
+  id              String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  feature_id      String          @db.Uuid
+  tab_role_id     String          @db.Uuid
+  is_valid        Boolean?        @default(false)
+  feature         feature         @relation(fields: [feature_id], references: [id], onDelete: Cascade, map: "fk_feature_tab_role_feature")
+  tabs_role_table tabs_role_table @relation(fields: [tab_role_id], references: [id], onDelete: Cascade, map: "fk_feature_tab_role_tabs_role")
+
+  @@unique([feature_id, tab_role_id])
+}
+
+model doctors {
+  id               String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  portalid         String         @unique @db.VarChar(20)
+  userid           String         @unique @db.Uuid
+  organization_id  String         @db.Uuid
+  first_name       String?        @db.VarChar(255)
+  last_name        String?        @db.VarChar(255)
+  email            String?        @db.VarChar(255)
+  phone            String?        @db.VarChar(20)
+  address          String?        @db.VarChar(250)
+  date_of_birth    DateTime?      @db.Date
+  is_valid         Boolean?       @default(true)
+  gender           gender?
+  specialization   String?        @db.VarChar(100)
+  license_number   String?        @db.VarChar(50)
+  emergencycontact String?        @db.VarChar(15)
+  created_at       DateTime?      @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime?      @default(now()) @db.Timestamptz(6)
+  appointments     appointments[]
+  organizations    organizations  @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users            users          @relation(fields: [userid], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model employees {
+  id               String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  portalid         String        @unique @db.VarChar(20)
+  userid           String        @unique @db.Uuid
+  organization_id  String        @db.Uuid
+  first_name       String?       @db.VarChar(255)
+  last_name        String?       @db.VarChar(255)
+  email            String?       @db.VarChar(255)
+  phone            String?       @db.VarChar(20)
+  address          String?       @db.VarChar(250)
+  date_of_birth    DateTime?     @db.Date
+  is_valid         Boolean?      @default(true)
+  gender           gender?
+  department       String?       @db.VarChar(100)
+  designation      String?       @db.VarChar(100)
+  emergencycontact String?       @db.VarChar(15)
+  created_at       DateTime?     @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime?     @default(now()) @db.Timestamptz(6)
+  organizations    organizations @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users            users         @relation(fields: [userid], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model resources {
+  id              String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  portal_id       String
+  name            String
+  status          resource_status @default(ENABLED)
+  is_valid        Boolean?        @default(true)
+  organization_id String          @db.Uuid
+  appointments    appointments[]
+  organizations   organizations   @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model super_admins {
+  id         String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id    String    @unique @db.Uuid
+  is_valid   Boolean?  @default(true)
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model services {
+  id              String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name            String         @db.VarChar(255)
+  description     String?
+  price           Decimal        @db.Decimal(10, 2)
+  is_valid        Boolean?       @default(true)
+  created_at      DateTime?      @default(now()) @db.Timestamp(6)
+  organization_id String         @db.Uuid
+  portal_id       String?        @unique
+  appointments    appointments[]
+  organizations   organizations  @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_organization")
+}
+
+model appointments {
+  id               String             @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  portal_id        String             @unique @db.VarChar(25)
+  organization_id  String             @db.Uuid
+  client_id        String             @db.Uuid
+  service_id       String             @db.Uuid
+  resource_id      String             @db.Uuid
+  doctor_id        String?            @db.Uuid
+  date_time        DateTime           @db.Timestamp(6)
+  start_time       DateTime           @db.Timestamp(6)
+  end_time         DateTime           @db.Timestamp(6)
+  remarks          String?
+  status           appointment_status @default(BOOKED)
+  is_valid         Boolean?           @default(true)
+  is_cancelled     Boolean?           @default(false)
+  cancel_remarks   String?
+  cancel_date_time DateTime?          @db.Timestamp(6)
+  created_at       DateTime?          @default(now()) @db.Timestamp(6)
+  clients          clients            @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  doctors          doctors?           @relation(fields: [doctor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  organizations    organizations      @relation(fields: [organization_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  resources        resources          @relation(fields: [resource_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  services         services           @relation(fields: [service_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([client_id], map: "idx_appointments_client_id")
+  @@index([date_time], map: "idx_appointments_date_time")
+  @@index([doctor_id], map: "idx_appointments_doctor_id")
+  @@index([is_cancelled], map: "idx_appointments_is_cancelled")
+  @@index([is_valid], map: "idx_appointments_is_valid")
+  @@index([organization_id], map: "idx_appointments_organization_id")
+  @@index([resource_id], map: "idx_appointments_resource_id")
+  @@index([service_id], map: "idx_appointments_service_id")
+  @@index([start_time, end_time], map: "idx_appointments_start_time_end_time")
+  @@index([status], map: "idx_appointments_status")
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum gender {
+  Male
+  Female
+  Other
+}
+
+enum resource_status {
+  ENABLED
+  DISABLED
+}
+
+enum appointment_status {
+  BOOKED
+  CONFIRMED
+  VISITED
+  NO_SHOW
+  CANCELLED
+  CLOSED
+}
