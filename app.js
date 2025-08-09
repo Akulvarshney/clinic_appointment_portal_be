@@ -8,6 +8,7 @@ import requestLogger from "./src/middleware/requestLog.js";
 
 const app = express();
 
+console.log("Hello World");
 app.use(cors());
 app.use(express.json());
 
