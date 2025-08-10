@@ -62,4 +62,38 @@ export const getServicesInfo = async (orgId) => {
   };
 };
 
+export const getActiveServicesInfo = async (orgId) => {
+  const Services = await Prisma.services.findMany({
+    where: {
+      organization_id: orgId,
+      status:"ENABLED"
+    },
+  });
+  return {
+    message: "Getting Services Successfully",
+    status: 200,
+    data: Services,
+  };
+};
+
+
+
+export const updateServices = async (id, status) => {
+  console.log("status>>>> "  , status)
+  await Prisma.services.update({
+  where:{
+      id:id
+    },
+    data:{
+      status:status
+    }
+
+  })
+  return {
+    message: "Updated Services Successfully",
+    status: 200,
+   
+  };
+};
+
 export const updateServicesInfo = async (req, res) => {};

@@ -4,6 +4,7 @@ import {
   createServiceController,
   getServicesController,
   updateServicesController,
+  getActiveServicesController
 } from "../../controller/serviceManagementController.js";
 
 const router = Router();
@@ -11,4 +12,6 @@ const router = Router();
 router.post("/createService", createServiceController);
 router.get("/getServices", getServicesController);
 router.patch("/updateService", updateServicesController);
+router.get("/getActiveServices" , getActiveServicesController )
+
 export default router;

@@ -207,7 +207,7 @@ export const updateRoleController = async (req, res) => {
 
 export const getDoctorController = async (req, res) => {
   try {
-    const { orgId } = req.params;
+    const { orgId } = req.query;
     const response = await getDoctorService(orgId);
     sendResponse(
       res,
