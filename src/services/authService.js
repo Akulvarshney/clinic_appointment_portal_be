@@ -86,6 +86,7 @@ export const loginUser = async (loginId, password) => {
           tab_path: tab.tab_path,
           tab_unique_name: tab.tab_unique_name,
           is_valid: tab.is_valid,
+          tab_number: tab.tab_number,
           features,
         };
       });

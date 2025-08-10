@@ -17,6 +17,13 @@ import {
   validateGetDetials,
   validateCreateDoctor,
 } from "../../validations/clientAdminValidations.js";
+import {
+  createCategory,
+  deleteCategory,
+  getCategories,
+  getCategoryById,
+  updateCategory,
+} from "../../controller/categoriesManagement.js";
 
 const router = Router();
 
@@ -33,5 +40,11 @@ router.put("/updateUserRole", updateRoleController);
 
 router.post("/createDoctor", validateCreateDoctor, createDoctorController);
 router.get("/getDoctors", validateGetDetials, getDoctorController);
+
+router.post("/category", createCategory);
+router.get("/category", getCategories);
+router.get("/category/:id", getCategoryById);
+router.put("/category/:id", updateCategory);
+router.delete("/category/:id", deleteCategory);
 
 export default router;

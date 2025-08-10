@@ -41,6 +41,7 @@ export const registerClientService = async (
   occupation,
   email,
   emergencyContact,
+  category,
   organization_id,
   roleId
 ) => {
@@ -73,6 +74,7 @@ export const registerClientService = async (
         phone: mobile,
         userid: newUser.id,
         address,
+        category_id: category,
         date_of_birth: dob ? new Date(dob) : null,
         organization_id,
         gender,
@@ -107,6 +109,9 @@ export const clientListingService = async (search, page, limit, orgId) => {
     skip: (page - 1) * limit,
     take: parseInt(limit),
     orderBy: { first_name: "asc" },
+    include: {
+      categories: true,
+    },
   });
 
   const totalCount = await Prisma.clients.count({

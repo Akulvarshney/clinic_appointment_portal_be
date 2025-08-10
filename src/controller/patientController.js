@@ -16,6 +16,7 @@ export const registerClientController = async (req, res) => {
       occupation,
       email,
       emergencyContact,
+      category,
       organization_id,
       roleId,
     } = req.body;
@@ -30,6 +31,7 @@ export const registerClientController = async (req, res) => {
       occupation,
       email,
       emergencyContact,
+      category,
       organization_id,
       roleId
     );

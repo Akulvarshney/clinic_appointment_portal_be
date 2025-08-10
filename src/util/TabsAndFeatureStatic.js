@@ -1,5 +1,6 @@
 export const tabFeatureConfig = [
   {
+    tab_number: 1,
     tab_unique_name: "DASHBOARD",
     tab_name: "Dashboard",
     tab_path: "/dashboard",
@@ -8,6 +9,7 @@ export const tabFeatureConfig = [
     ],
   },
   {
+    tab_number: 2,
     tab_unique_name: "ADMIN_DASHBOARD",
     tab_name: "Admin Dashboard",
     tab_path: "/superadmin/dashboard",
@@ -19,6 +21,7 @@ export const tabFeatureConfig = [
     ],
   },
   {
+    tab_number: 3,
     tab_unique_name: "CLIENT_LISTING",
     tab_name: "Client Listing",
     tab_path: "/clients",
@@ -31,6 +34,7 @@ export const tabFeatureConfig = [
     ],
   },
   {
+    tab_number: 4,
     tab_unique_name: "EMPLOYEE_MANAGEMENT",
     tab_name: "Employee Management",
     tab_path: "/employeeManagement",
@@ -45,6 +49,7 @@ export const tabFeatureConfig = [
     ],
   },
   {
+    tab_number: 5,
     tab_unique_name: "DOCTOR_MANAGEMENT",
     tab_name: "Doctor Management",
     tab_path: "/doctorManagement",
@@ -55,18 +60,9 @@ export const tabFeatureConfig = [
       { feature_unique_name: "DELETE_DOCTOR", feature_name: "Delete Doctor" },
     ],
   },
+
   {
-    tab_unique_name: "ROLE_MANAGEMENT",
-    tab_name: "Role Management",
-    tab_path: "/roleManagement",
-    features: [
-      { feature_unique_name: "VIEW_ROLES", feature_name: "View Roles" },
-      { feature_unique_name: "ADD_ROLE", feature_name: "Add Role" },
-      { feature_unique_name: "EDIT_ROLE", feature_name: "Edit Role" },
-      { feature_unique_name: "DELETE_ROLE", feature_name: "Delete Role" },
-    ],
-  },
-  {
+    tab_number: 6,
     tab_unique_name: "SERVICE_MANAGEMENT",
     tab_name: "Service Management",
     tab_path: "/servicesManagement",
@@ -78,6 +74,7 @@ export const tabFeatureConfig = [
     ],
   },
   {
+    tab_number: 7,
     tab_unique_name: "RESOURCE_MANAGEMENT",
     tab_name: "Resource Management",
     tab_path: "/resourceManagement",
@@ -92,6 +89,7 @@ export const tabFeatureConfig = [
     ],
   },
   {
+    tab_number: 8,
     tab_unique_name: "SETTINGS",
     tab_name: "Settings",
     tab_path: "/settings",
@@ -105,6 +103,10 @@ export const tabFeatureConfig = [
       {
         feature_unique_name: "ROLE_MANAGEMENT",
         feature_name: "Role Management",
+      },
+      {
+        feature_unique_name: "CLIENT_CATEGORIES",
+        feature_name: "Client Categories",
       },
     ],
   },
