@@ -17,11 +17,12 @@ export const createResourceService = async (resourceName, orgId) => {
   });
 };
 
-export const getResources = async (orgId) => {
+export const getResources = async (orgId,status) => {
   const resources = await Prisma.resources.findMany({
     where: {
       organization_id: orgId,
       is_valid: true,
+      status:status
     },
   });
   return resources;

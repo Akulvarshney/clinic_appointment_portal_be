@@ -96,6 +96,7 @@ export const getEmployeesService = async (orgId) => {
     where: {
       organization_id: orgId,
       is_valid: true,
+      
     },
     orderBy: {
       first_name: "asc",
