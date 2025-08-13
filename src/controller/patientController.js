@@ -1,6 +1,7 @@
 import {
   registerClientService,
   clientListingService,
+  clientSearchService
 } from "../services/patientService.js";
 import { sendResponse } from "../util/response.js";
 
@@ -47,6 +48,19 @@ export const clientListingConroller = async (req, res) => {
 
   try {
     const response = await clientListingService(search, page, limit, orgId);
+    res.json(response); // ✅ Send response to frontend
+  } catch (error) {
+    console.error("Error in client listing:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
+
+export const clientSearchController = async (req, res) => {
+  const { search = "", orgId ,limit} = req.query;
+
+  try {
+    const response = await clientSearchService(search,  limit, orgId);
     res.json(response); // ✅ Send response to frontend
   } catch (error) {
     console.error("Error in client listing:", error);
