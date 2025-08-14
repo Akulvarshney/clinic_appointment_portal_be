@@ -62,3 +62,21 @@ export const bookAppointmentService = async(
 
 
 }
+
+
+
+export const getActiveAppointmentService = async (orgId,date)=>{
+    const startOfDay = new Date(date); // already ISO from FE
+const endOfDay = new Date(new Date(date).setUTCHours(23, 59, 59, 999));
+    const appts = await Prisma.appointments.findMany({
+    where: {
+       organization_id: orgId,
+        date_time: {
+            gte: startOfDay,
+            lte: endOfDay
+            },
+      is_valid: true,
+    },
+  });
+  return appts;
+}

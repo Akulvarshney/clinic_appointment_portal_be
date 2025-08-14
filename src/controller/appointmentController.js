@@ -8,7 +8,7 @@ import { sendResponse, sendErrorResponse } from "../util/response.js";
 //   NewApplicationActionService,
 //   checkShortNameService,
 // } from "../services/newApplicationService.js";
-import {bookAppointmentService} from "../services/appointmentService.js"
+import {bookAppointmentService,getActiveAppointmentService} from "../services/appointmentService.js"
 
 export const bookAppointmentController = async(req , res) =>{
       const {       
@@ -41,7 +41,18 @@ export const bookAppointmentController = async(req , res) =>{
 
 
 export const getActiveAppointmentsController = async(req , res) =>{
-    
+    const {orgId,date } = req.query;
+    try{
+    const response = await getActiveAppointmentService(orgId,date);
+    sendResponse(
+      res,
+      { message: "Getting Appointments Successfully", response, status: 200 },
+      200
+    );
+    } catch (error) {
+    console.log("Error herer.   ", error.message);
+    res.status(401).json({ message: "Error: while getting Appointments" });
+  }
 }
 
 export const cancelAppointmentController = async(req , res) =>{
