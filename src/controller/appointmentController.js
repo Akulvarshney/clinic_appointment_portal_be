@@ -8,7 +8,9 @@ import { sendResponse, sendErrorResponse } from "../util/response.js";
 //   NewApplicationActionService,
 //   checkShortNameService,
 // } from "../services/newApplicationService.js";
-import {bookAppointmentService,getActiveAppointmentService} from "../services/appointmentService.js"
+import {bookAppointmentService,getActiveAppointmentService,cancelAppointmentsService,
+  changeAppointmentStatusService
+} from "../services/appointmentService.js"
 
 export const bookAppointmentController = async(req , res) =>{
       const {       
@@ -19,7 +21,9 @@ export const bookAppointmentController = async(req , res) =>{
       start,
       end,
       orgId,
-      remarks
+      remarks,
+      doctorId,
+      serviceId,
     } = req.body;
     
       try {
@@ -31,7 +35,9 @@ export const bookAppointmentController = async(req , res) =>{
       start,
       end,
       orgId,
-      remarks);
+      remarks,
+      doctorId,
+      serviceId,);
         res.json(response); 
       } catch (error) {
         console.error("Error in Appointment Scheduling:", error);
@@ -55,10 +61,34 @@ export const getActiveAppointmentsController = async(req , res) =>{
   }
 }
 
-export const cancelAppointmentController = async(req , res) =>{
-    
+export const cancelAppointmentController = async(req , res) =>{             
+        const {id } = req.query;
+         const {Cancel_remarks } = req.body;
+    try{
+    const response = await cancelAppointmentsService(id,Cancel_remarks);
+    sendResponse(
+      res,
+      { message: "Appointment Cancelled Successfully", response, status: 200 },
+      200
+    );
+    } catch (error) {
+    console.log("Error herer.   ", error.message);
+    res.status(401).json({ message: "Error: while cancelling Appointment" });
+  }
 }
 
 export const changeAppointmentStatusController = async(req , res) =>{
-    
+            const {id, status } = req.query;
+         console.log(id ,  status)
+    try{
+    const response = await changeAppointmentStatusService(id,status);
+    sendResponse(
+      res,
+      { message: "Appointment Status Updated Successfully", response, status: 200 },
+      200
+    );
+    } catch (error) {
+    console.log("Error herer.   ", error.message);
+    res.status(401).json({ message: "Error: while updating status" });
+  }
 }

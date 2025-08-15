@@ -2,15 +2,16 @@ import { Router } from "express";
 
 import {
   bookAppointmentController,
-  getActiveAppointmentsController
-
+  getActiveAppointmentsController,
+cancelAppointmentController,
+changeAppointmentStatusController
 } from "../../controller/appointmentController.js";
 
 const router = Router();
 
 router.post("/bookappointment", bookAppointmentController);
 router.get("/getActiveAppointments", getActiveAppointmentsController);
-router.patch("/changeAppointmentStatus",bookAppointmentController)
-router.post("/cancelAppointment",bookAppointmentController )
+router.patch("/changeAppointmentStatus",changeAppointmentStatusController)
+router.post("/cancelAppointment",cancelAppointmentController )
 
 export default router;

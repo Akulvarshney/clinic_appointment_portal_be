@@ -39,7 +39,9 @@ export const bookAppointmentService = async(
       start,
       end,
       orgId,
-      remarks) =>{
+      remarks,
+          doctorId,
+      serviceId,) =>{
         const portal_id  = await generateAppointmentPortal_id();
         console.log("portal_id>> " , portal_id)
          
@@ -52,10 +54,12 @@ export const bookAppointmentService = async(
             date_time:date,
             start_time:start,
             end_time:end,
-            remarks:remarks
+            remarks:remarks,
+            service_id:serviceId,
+            doctor_id:doctorId
                 }
-        
         })
+        console.log("Booked APPOINTMETNT>>>> " , appt)
 
 
      return { message: "Appointment Successfully Scheduled ", status: 200 };
@@ -76,7 +80,61 @@ const endOfDay = new Date(new Date(date).setUTCHours(23, 59, 59, 999));
             lte: endOfDay
             },
       is_valid: true,
+      status: {
+        not: "CANCELLED"
+        }
+    },
+        include: {
+      clients: {
+        select: {
+          id: true,
+          first_name: true,
+          email: true,
+          phone: true,
+        },
+      },
+      services: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
     },
   });
   return appts;
+}
+
+
+
+export const cancelAppointmentsService = async(id, cancelRemarks) =>{
+    await Prisma.appointments.update({
+        data:{
+            status:"CANCELLED",
+            cancel_remarks:cancelRemarks,
+            cancel_date_time: new Date()
+        },
+        where:{
+            id
+        }
+    })
+
+}
+
+
+
+
+
+
+
+
+export const changeAppointmentStatusService = async(id, status) =>{
+  await Prisma.appointments.update({
+    data:{
+      status,
+    },
+    where:{
+      id
+    }
+  })
+  
 }
