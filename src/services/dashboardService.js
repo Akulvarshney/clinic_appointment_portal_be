@@ -20,7 +20,7 @@ export const getKPIDataService = async (orgId) => {
         },
       },
     });
-    
+
     const totalAppointments = await Prisma.appointments.count({
       where: { organization_id: orgId },
     });
@@ -33,3 +33,42 @@ export const getKPIDataService = async (orgId) => {
 
   return kpiData;
 };
+
+
+
+export const getPieChartDataService = async(orgId) =>{
+    console.log("orgId 123" ,orgId)
+    // const result = await Prisma.$queryRaw`
+    //     SELECT c.category_name as category, COUNT(cl.id) as count
+    //     FROM categories c
+    //     LEFT JOIN clients cl ON c.id = cl.category_id
+    //     WHERE c.status = 'ENABLED'
+    //     AND c.organization_id = ${orgId}
+    //     GROUP BY c.category_name
+    //     ORDER BY c.category_name;
+    //     `;
+
+
+const pieRows = await Prisma.categories.findMany({
+  where: {
+    organization_id: orgId,       // UUID string
+    status: 'ENABLED',
+    is_valid:true,
+  },
+  select: {
+    category_name: true,
+    _count: { select: { clients: true } }, // counts related clients
+  },
+  orderBy: { category_name: 'asc' },
+});
+console.log("pieRows>>> " , pieRows)
+
+// shape for Recharts
+const pieData = pieRows.map(r => ({
+  name: r.category_name,
+  value: r._count.clients, 
+}));
+
+    console.log(pieData);
+    return pieData;
+}
