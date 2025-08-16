@@ -1,7 +1,9 @@
+import prisma from "../prisma.js";
 import {
   registerClientService,
   clientListingService,
-  clientSearchService
+  clientSearchService,
+  clientSearchByIdService,
 } from "../services/patientService.js";
 import { sendResponse } from "../util/response.js";
 
@@ -55,15 +57,56 @@ export const clientListingConroller = async (req, res) => {
   }
 };
 
-
 export const clientSearchController = async (req, res) => {
-  const { search = "", orgId ,limit} = req.query;
+  const { search = "", orgId, limit } = req.query;
 
   try {
-    const response = await clientSearchService(search,  limit, orgId);
+    const response = await clientSearchService(search, limit, orgId);
     res.json(response); // ✅ Send response to frontend
   } catch (error) {
     console.error("Error in client listing:", error);
     res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
+export const clientDetailsController = async (req, res) => {
+  try {
+    const { clientId } = req.params;
+
+    if (!clientId) {
+      return res.status(400).json({
+        success: false,
+        message: "Client ID is required",
+      });
+    }
+
+    const client = await prisma.clients.findUnique({
+      where: { id: clientId },
+      include: {
+        organizations: true, // fetch organization details
+        users: true, // fetch user details
+        categories: true, // fetch category details
+        appointments: true, // fetch related appointments
+      },
+    });
+
+    if (!client) {
+      return res.status(404).json({
+        success: false,
+        message: "Client not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Client details retrieved successfully",
+      data: client,
+    });
+  } catch (error) {
+    console.error("Error fetching client details:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
   }
 };

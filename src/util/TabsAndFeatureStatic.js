@@ -22,6 +22,30 @@ export const tabFeatureConfig = [
   },
   {
     tab_number: 3,
+    tab_unique_name: "APPOINTMENT",
+    tab_name: "Appointment",
+    tab_path: "/appointments",
+    features: [
+      {
+        feature_unique_name: "VIEW_APPOINTMENTS",
+        feature_name: "View Appointments",
+      },
+      {
+        feature_unique_name: "ADD_APPOINTMENT",
+        feature_name: "Add Appointment",
+      },
+      {
+        feature_unique_name: "EDIT_APPOINTMENT",
+        feature_name: "Edit Appointment",
+      },
+      {
+        feature_unique_name: "DELETE_APPOINTMENT",
+        feature_name: "Delete Appointment",
+      },
+    ],
+  },
+  {
+    tab_number: 4,
     tab_unique_name: "CLIENT_LISTING",
     tab_name: "Client Listing",
     tab_path: "/clients",
@@ -34,7 +58,7 @@ export const tabFeatureConfig = [
     ],
   },
   {
-    tab_number: 4,
+    tab_number: 5,
     tab_unique_name: "EMPLOYEE_MANAGEMENT",
     tab_name: "Employee Management",
     tab_path: "/employeeManagement",
@@ -49,7 +73,7 @@ export const tabFeatureConfig = [
     ],
   },
   {
-    tab_number: 5,
+    tab_number: 6,
     tab_unique_name: "DOCTOR_MANAGEMENT",
     tab_name: "Doctor Management",
     tab_path: "/doctorManagement",
@@ -62,7 +86,7 @@ export const tabFeatureConfig = [
   },
 
   {
-    tab_number: 6,
+    tab_number: 7,
     tab_unique_name: "SERVICE_MANAGEMENT",
     tab_name: "Service Management",
     tab_path: "/servicesManagement",
@@ -74,7 +98,7 @@ export const tabFeatureConfig = [
     ],
   },
   {
-    tab_number: 7,
+    tab_number: 8,
     tab_unique_name: "RESOURCE_MANAGEMENT",
     tab_name: "Resource Management",
     tab_path: "/resourceManagement",
@@ -89,7 +113,7 @@ export const tabFeatureConfig = [
     ],
   },
   {
-    tab_number: 8,
+    tab_number: 9,
     tab_unique_name: "SETTINGS",
     tab_name: "Settings",
     tab_path: "/settings",

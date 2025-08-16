@@ -96,8 +96,8 @@ export const registerClientService = async (
 };
 
 export const clientListingService = async (search, page, limit, orgId) => {
-  console.log(orgId)
-  console.log(search)
+  console.log(orgId);
+  console.log(search);
   const whereClause = {
     OR: [
       { first_name: { contains: search, mode: "insensitive" } },
@@ -108,7 +108,7 @@ export const clientListingService = async (search, page, limit, orgId) => {
 
   const clients = await Prisma.clients.findMany({
     // where: search ? whereClause : undefined,
-    where:whereClause,
+    where: whereClause,
     skip: (page - 1) * limit,
     take: parseInt(limit),
     orderBy: { first_name: "asc" },
@@ -116,7 +116,7 @@ export const clientListingService = async (search, page, limit, orgId) => {
       categories: true,
     },
   });
-  console.log(clients)
+  console.log(clients);
 
   const totalCount = await Prisma.clients.count({
     where: search ? whereClause : undefined,
@@ -130,12 +130,9 @@ export const clientListingService = async (search, page, limit, orgId) => {
   };
 };
 
-
-
-
 export const clientSearchService = async (search, limit, orgId) => {
-  console.log(orgId)
-  console.log(search)
+  console.log(orgId);
+  console.log(search);
   const whereClause = {
     OR: [
       { first_name: { contains: search, mode: "insensitive" } },
@@ -148,19 +145,40 @@ export const clientSearchService = async (search, limit, orgId) => {
     // where: search ? whereClause : undefined,
     where: whereClause,
     orderBy: { first_name: "asc" },
-     take: limit ? parseInt(limit, 10) : 5 ,
+    take: limit ? parseInt(limit, 10) : 5,
     include: {
       categories: true,
     },
   });
-  console.log(clients)
+  console.log(clients);
 
   const totalCount = await Prisma.clients.count({
-    where: whereClause ,
+    where: whereClause,
   });
 
   return {
     data: clients,
     total: totalCount,
   };
+};
+
+export const clientSearchByIdService = async (id) => {
+  const client = await Prisma.clients.findUnique({
+    where: { id: id },
+    include: {
+      categories: true,
+      users: true,
+      user_organizations: {
+        include: {
+          organizations: true,
+        },
+      },
+    },
+  });
+
+  if (!client) {
+    throw new Error("Client not found");
+  }
+
+  return client;
 };
