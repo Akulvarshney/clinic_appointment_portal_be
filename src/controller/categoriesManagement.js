@@ -59,11 +59,11 @@ export const createCategory = async (req, res) => {
 
 export const getCategories = async (req, res) => {
   try {
-    const { organization_id } = req.query;
+    const { organization_id, is_valid } = req.query;
 
     const categories = await prisma.categories.findMany({
       where: {
-        is_valid: true,
+        is_valid: is_valid ? is_valid === "true" : undefined,
         ...(organization_id ? { organization_id } : {}),
       },
       orderBy: { created_at: "desc" },
@@ -74,7 +74,6 @@ export const getCategories = async (req, res) => {
     return sendErrorResponse(res, err);
   }
 };
-
 
 export const getCategoryById = async (req, res) => {
   try {
