@@ -138,3 +138,30 @@ export const changeAppointmentStatusService = async(id, status) =>{
   })
   
 }
+
+
+
+
+
+export const reScheduleAppointmentService = async(end,start, id,resourceId ) =>{
+  console.log("reScheduleAppointmentService >>> ", end,start, id,resourceId );
+  const appt = await Prisma.appointments.findFirst({
+    where:{
+      id,
+    }
+  });
+  if (!appt){
+    throw new Error ("Appointment Not found: Error while updating Appoitnment");
+  };
+  const response =  await Prisma.appointments.update({
+    where:{
+      id,
+    },
+    data:{
+      resource_id:resourceId,
+      start_time:start,
+      end_time:end,
+    }
+  });
+  
+}
