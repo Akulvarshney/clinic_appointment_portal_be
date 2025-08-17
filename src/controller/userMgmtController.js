@@ -229,15 +229,35 @@ export const updateTabAndFeatureAccess = async (req, res) => {
 
 export const getEmployeesController = async (req, res) => {
   try {
-    const { orgId } = req.query;
-    const response = await getEmployeesService(orgId);
+    const {
+      orgId,
+      page = 1,
+      limit = 10,
+      search = "",
+      sortBy = "created_at",
+      sortOrder = "desc",
+    } = req.query;
+
+    const response = await getEmployeesService({
+      orgId,
+      page: parseInt(page, 10),
+      limit: parseInt(limit, 10),
+      search,
+      sortBy,
+      sortOrder,
+    });
+
     sendResponse(
       res,
-      { message: response.message, response, status: response.status },
+      {
+        message: "Employees fetched successfully",
+        response,
+        status: 200,
+      },
       200
     );
   } catch (err) {
-    console.log(err);
+    console.error(err);
     res.status(400).json({ message: "Error getting the records" });
   }
 };

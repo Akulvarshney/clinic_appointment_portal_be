@@ -1,6 +1,11 @@
 import { response } from "express";
 import Prisma from "../prisma.js";
 import { hashPassword } from "../util/password.js";
+import {
+  rejectApplicationTemplate,
+  sendApproveApplicationTemplate,
+} from "../util/emailTemplates.js";
+import { sendEmail } from "../util/sendMail.js";
 
 export const new_application_submit = async (
   org_name,
@@ -90,12 +95,25 @@ export const NewApplicationActionService = async (uuid, Action, remarks) => {
           rejection_remarks: remarks,
         },
       });
+
+      const { subject, html, text } = rejectApplicationTemplate(
+        record.clientname,
+        record.trackingid
+      );
+      await sendEmail({
+        to: record.email,
+        subject,
+        html,
+        text,
+      });
       return "Application Rejected Succesfully";
   }
 };
 
 export async function ApproveApplication(uuid, record) {
-  const hashedPassword = await hashPassword(process.env.DEFAULT_CLIENT_ADMIN_PASSWORD);
+  const hashedPassword = await hashPassword(
+    process.env.DEFAULT_CLIENT_ADMIN_PASSWORD
+  );
 
   const result = await Prisma.$transaction(
     async (tx) => {
@@ -108,7 +126,10 @@ export async function ApproveApplication(uuid, record) {
           ],
         },
       });
-      if (existingOrg) throw new Error("Organization already exists with this Name or Short Name");
+      if (existingOrg)
+        throw new Error(
+          "Organization already exists with this Name or Short Name"
+        );
 
       // Check for existing user
       // const existingUser = await tx.users.findUnique({
@@ -131,6 +152,8 @@ export async function ApproveApplication(uuid, record) {
         },
       });
 
+      const loginId = "admin_" + record.org_short_name;
+
       // Create user
       const newUser = await tx.users.create({
         data: {
@@ -138,7 +161,7 @@ export async function ApproveApplication(uuid, record) {
           password_hash: hashedPassword,
           full_name: record.clientname,
           phone: record.phone,
-          login_id: "admin_" + record.org_short_name,
+          login_id: loginId,
         },
       });
 
@@ -250,6 +273,19 @@ export async function ApproveApplication(uuid, record) {
       timeout: 20000,
     }
   );
+
+  const { subject, html, text } = sendApproveApplicationTemplate(
+    record.clientname,
+    record.trackingid,
+    loginId,
+    process.env.DEFAULT_CLIENT_ADMIN_PASSWORD
+  );
+  await sendEmail({
+    to: record.email,
+    subject,
+    html,
+    text,
+  });
 
   return result;
 }

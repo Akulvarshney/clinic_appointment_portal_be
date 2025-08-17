@@ -91,37 +91,51 @@ export const getRoleService = async (orgId) => {
   return record;
 };
 
-export const getEmployeesService = async (orgId) => {
-  const employees = await Prisma.employees.findMany({
-    where: {
-      organization_id: orgId,
-      is_valid: true,
-      
-    },
-    orderBy: {
-      first_name: "asc",
-    },
-    include: {
-      users: {
-        select: {
-          login_id: true,
-          is_valid: true,
-          user_organizations: {
-            where: {
-              organization_id: orgId,
-              is_valid: true,
-            },
-            select: {
-              user_roles: {
-                where: {
-                  is_valid: true,
-                },
-                select: {
-                  roles: {
-                    select: {
-                      name: true,
-                      id: true,
-                    },
+export const getEmployeesService = async ({
+  orgId,
+  page,
+  limit,
+  search,
+  sortBy,
+  sortOrder,
+}) => {
+  const skip = (page - 1) * limit;
+
+  const whereClause = {
+    organization_id: orgId,
+    is_valid: true,
+    ...(search && {
+      OR: [
+        { first_name: { contains: search, mode: "insensitive" } },
+        { last_name: { contains: search, mode: "insensitive" } },
+        { email: { contains: search, mode: "insensitive" } },
+      ],
+    }),
+  };
+
+  const [employees, totalCount] = await Promise.all([
+    Prisma.employees.findMany({
+      where: whereClause,
+      skip,
+      take: limit,
+      orderBy: {
+        [sortBy]: sortOrder.toLowerCase() === "asc" ? "asc" : "desc",
+      },
+      include: {
+        users: {
+          select: {
+            login_id: true,
+            is_valid: true,
+            user_organizations: {
+              where: {
+                organization_id: orgId,
+                is_valid: true,
+              },
+              select: {
+                user_roles: {
+                  where: { is_valid: true },
+                  select: {
+                    roles: { select: { name: true, id: true } },
                   },
                 },
               },
@@ -129,10 +143,17 @@ export const getEmployeesService = async (orgId) => {
           },
         },
       },
-    },
-  });
+    }),
+    Prisma.employees.count({ where: whereClause }),
+  ]);
 
-  return employees;
+  return {
+    data: employees,
+    total: totalCount,
+    page,
+    limit,
+    totalPages: Math.ceil(totalCount / limit),
+  };
 };
 
 export const getDoctorService = async (orgId) => {
@@ -239,8 +260,8 @@ async function generateDoctorPortalId() {
 }
 
 function generateLoginId(orgName, firstName, DOB) {
-  const prefix  = String(orgName).toLowerCase();      
-  const firstInitial = firstName.slice(0, 3).toLowerCase();      
+  const prefix = String(orgName).toLowerCase();
+  const firstInitial = firstName.slice(0, 3).toLowerCase();
   const dob = new Date(DOB);
   const day = String(dob.getDate()).padStart(2, "0");
   return `${prefix}${firstInitial}${day}`;
@@ -261,17 +282,17 @@ export const createEmployeeService = async (
   orgId
 ) => {
   const shortorg = await Prisma.organizations.findFirst({
-    where:{
-      id:orgId,
+    where: {
+      id: orgId,
     },
-    select:{
-      shortorgname:true
-    }
+    select: {
+      shortorgname: true,
+    },
   });
-  
-  const name = shortorg? shortorg.shortorgname : "EMP"
-  const login_id = generateLoginId(name,firstName,DOB)
-  // Create Login_id 
+
+  const name = shortorg ? shortorg.shortorgname : "EMP";
+  const login_id = generateLoginId(name, firstName, DOB);
+  // Create Login_id
   const hashedPassword = await hashPassword(process.env.DEFAULT_USER_PASSWORD);
   const login_id_check = await Prisma.users.findFirst({
     where: {
@@ -306,8 +327,8 @@ export const createEmployeeService = async (
       },
     });
 
-     const newPortalId = await generateEmployeePortalId();
-   
+    const newPortalId = await generateEmployeePortalId();
+
     console.log("newPortalId>>>>>  , ", newPortalId);
     const newEmployee = await tx.employees.create({
       data: {
@@ -345,26 +366,24 @@ export const createDoctorService = async (
 ) => {
   const newPortalId = await generateDoctorPortalId();
 
-    const shortorg = await Prisma.organizations.findFirst({
-    where:{
-      id:orgId,
+  const shortorg = await Prisma.organizations.findFirst({
+    where: {
+      id: orgId,
     },
-    select:{
-      shortorgname:true
-    }
+    select: {
+      shortorgname: true,
+    },
   });
-  const name = shortorg? shortorg.shortorgname : "DOC"
-  const login_id = generateLoginId(name,firstName,DOB)
+  const name = shortorg ? shortorg.shortorgname : "DOC";
+  const login_id = generateLoginId(name, firstName, DOB);
 
-    const login_id_check = await Prisma.users.findFirst({
+  const login_id_check = await Prisma.users.findFirst({
     where: {
       login_id,
     },
   });
   if (login_id_check) {
-    throw new Error(
-      "Login Id already exists."
-    );
+    throw new Error("Login Id already exists.");
   }
 
   const password = await hashPassword(process.env.DEFAULT_USER_PASSWORD);

@@ -6,6 +6,7 @@ import {
   NewApplicationActionService,
   checkShortNameService,
 } from "../services/newApplicationService.js";
+import { sendTrackingTemplate } from "../util/emailTemplates.js";
 import { sendResponse, sendErrorResponse } from "../util/response.js";
 
 export const submitNewApplicationWithCheck = async (req, res) => {
@@ -57,6 +58,16 @@ export const submitNewApplicationWithCheck = async (req, res) => {
         address,
       },
     });
+
+    const trackingId = newApp.trackingid;
+
+    if (newApp) {
+      const { subject, html, text } = sendTrackingTemplate(
+        client_name,
+        trackingId
+      );
+      await sendEmail({ to: user.email, subject, html, text });
+    }
 
     return sendResponse(
       res,
