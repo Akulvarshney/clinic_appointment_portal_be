@@ -13,6 +13,58 @@ import { response } from "express";
 import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
+export const getUserDetails = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    if (!userId) {
+      return res.status(400).json({ message: "User ID is required" });
+    }
+
+    const user = await prisma.users.findUnique({
+      where: { id: userId },
+      include: {
+        user_organizations: {
+          include: {
+            organizations: true,
+            user_roles: {
+              include: {
+                roles: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Transform the data to make it more accessible
+    const userWithRoles = {
+      ...user,
+      organizations: user.user_organizations.map((userOrg) => ({
+        ...userOrg.organizations,
+        roles: userOrg.user_roles.map((userRole) => userRole.roles),
+      })),
+    };
+
+    // Remove the nested structure since we've flattened it
+    delete userWithRoles.user_organizations;
+
+    return res.status(200).json({
+      message: "User details retrieved successfully",
+      user: userWithRoles,
+    });
+  } catch (error) {
+    console.error("Error fetching user details:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
 export const createRoleController = async (req, res) => {
   try {
     const { roleName, roleDesc, orgId } = req.body;

@@ -118,6 +118,7 @@ export const tabFeatureConfig = [
     tab_name: "Settings",
     tab_path: "/settings",
     features: [
+      { feature_unique_name: "PROFILE_PAGE", feature_name: "Profile Page" },
       { feature_unique_name: "MANAGE_USERS", feature_name: "Manage Users" },
       {
         feature_unique_name: "SYSTEM_PREFERENCES",

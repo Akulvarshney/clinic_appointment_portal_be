@@ -10,6 +10,7 @@ import {
   getDoctorController,
   updateTabAndFeatureAccess,
   updateRoleController,
+  getUserDetails,
 } from "../../controller/userMgmtController.js";
 import {
   validateCreateRole,
@@ -46,5 +47,7 @@ router.get("/category", getCategories);
 router.get("/category/:id", getCategoryById);
 router.put("/category/:id", updateCategory);
 router.delete("/category/:id", deleteCategory);
+
+router.get("/getUserDetails/:userId", getUserDetails);
 
 export default router;
