@@ -165,6 +165,9 @@ export const getDoctorService = async (orgId) => {
     orderBy: {
       portalid: "asc",
     },
+    include:{
+      users:true
+    }
   });
   return record;
 };
@@ -264,7 +267,7 @@ function generateLoginId(orgName, firstName, DOB) {
   const firstInitial = firstName.slice(0, 3).toLowerCase();
   const dob = new Date(DOB);
   const day = String(dob.getDate()).padStart(2, "0");
-  return `${prefix}${firstInitial}${day}`;
+  return `${prefix}_${firstInitial}${day}`;
 }
 
 export const createEmployeeService = async (
