@@ -9,7 +9,6 @@ export const loginUser = async (loginId, password) => {
   const user = await prisma.users.findFirst({
     where: {
       login_id: loginId,
-      is_valid: true,
     },
     include: {
       user_organizations: {
@@ -49,7 +48,7 @@ export const loginUser = async (loginId, password) => {
   });
 
   if (!user) throw new Error("User not found");
-  if (!user.is_valid) throw new Error("Valid user not found");
+  if (!user.is_valid) throw new Error("User is deactivated.");
   if (!(await verifyPassword(password, user.password_hash))) {
     throw new Error("Invalid Password");
   }
@@ -59,6 +58,11 @@ export const loginUser = async (loginId, password) => {
   });
 
   await saveToken(user.id, token);
+
+  await prisma.users.update({
+    where: { id: user.id },
+    data: { last_login: new Date() },
+  });
 
   const organizations = user.user_organizations.map((uo) => {
     const org = uo.organizations;
