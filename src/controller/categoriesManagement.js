@@ -1,6 +1,46 @@
 import prisma from "../prisma.js";
 import { sendErrorResponse, sendResponse } from "../util/response.js";
 
+function getRandomLightMidHex() {
+  // HSL: Hue [0–360], Saturation [40–80%], Lightness [40–70%]
+  const h = Math.floor(Math.random() * 360);      // any hue
+  const s = Math.floor(Math.random() * 40) + 40;  // 40–80% saturation
+  const l = Math.floor(Math.random() * 30) + 40;  // 40–70% lightness
+
+  // Convert HSL → RGB
+  function hslToRgb(h, s, l) {
+    s /= 100;
+    l /= 100;
+    const k = n => (n + h / 30) % 12;
+    const a = s * Math.min(l, 1 - l);
+    const f = n =>
+      l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+    return [
+      Math.round(255 * f(0)),
+      Math.round(255 * f(8)),
+      Math.round(255 * f(4)),
+    ];
+  }
+
+  // Convert RGB → HEX
+  function rgbToHex(r, g, b) {
+    return (
+      "#" +
+      [r, g, b]
+        .map((x) => x.toString(16).padStart(2, "0"))
+        .join("")
+        .toUpperCase()
+    );
+  }
+
+  const [r, g, b] = hslToRgb(h, s, l);
+  return rgbToHex(r, g, b);
+}
+
+
+
+
+
 export const createCategory = async (req, res) => {
   try {
     const { category_name, organization_id, is_valid } = req.body;
@@ -35,11 +75,14 @@ export const createCategory = async (req, res) => {
       );
     }
 
+    const colorHex = getRandomLightMidHex();
+
     const category = await prisma.categories.create({
       data: {
         category_name,
         organization_id,
         is_valid: is_valid ?? true,
+        categories_color:colorHex,
       },
     });
 

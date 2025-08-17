@@ -288,15 +288,16 @@ model appointments {
 }
 
 model categories {
-  id              String                 @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  category_name   String                 @db.VarChar(255)
-  is_valid        Boolean?               @default(true)
-  organization_id String                 @db.Uuid
-  created_at      DateTime?              @default(now()) @db.Timestamptz(6)
-  updated_at      DateTime?              @default(now()) @db.Timestamptz(6)
-  status          categories_status_enum @default(ENABLED)
-  organizations   organizations          @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_categories_organization")
-  clients         clients[]
+  id               String                 @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  category_name    String                 @db.VarChar(255)
+  is_valid         Boolean?               @default(true)
+  organization_id  String                 @db.Uuid
+  created_at       DateTime?              @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime?              @default(now()) @db.Timestamptz(6)
+  status           categories_status_enum @default(ENABLED)
+  categories_color String?                @db.VarChar
+  organizations    organizations          @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_categories_organization")
+  clients          clients[]
 
   @@unique([organization_id, category_name], map: "uq_org_category")
 }

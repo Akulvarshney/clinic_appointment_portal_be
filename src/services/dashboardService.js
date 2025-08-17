@@ -37,7 +37,7 @@ export const getKPIDataService = async (orgId) => {
 
 
 export const getPieChartDataService = async(orgId) =>{
-    console.log("orgId 123" ,orgId)
+    //console.log("orgId 123" ,orgId)
     // const result = await Prisma.$queryRaw`
     //     SELECT c.category_name as category, COUNT(cl.id) as count
     //     FROM categories c
@@ -57,7 +57,8 @@ const pieRows = await Prisma.categories.findMany({
   },
   select: {
     category_name: true,
-    _count: { select: { clients: true } }, // counts related clients
+    categories_color:true,
+    _count: { select: { clients: true } }, 
   },
   orderBy: { category_name: 'asc' },
 });
@@ -67,6 +68,7 @@ console.log("pieRows>>> " , pieRows)
 const pieData = pieRows.map(r => ({
   name: r.category_name,
   value: r._count.clients, 
+  color:r.categories_color
 }));
 
     console.log(pieData);
