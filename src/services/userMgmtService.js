@@ -238,6 +238,14 @@ async function generateDoctorPortalId() {
   });
 }
 
+function generateLoginId(orgName, firstName, DOB) {
+  const prefix  = String(orgName).toLowerCase();      
+  const firstInitial = firstName.slice(0, 3).toLowerCase();      
+  const dob = new Date(DOB);
+  const day = String(dob.getDate()).padStart(2, "0");
+  return `${prefix}${firstInitial}${day}`;
+}
+
 export const createEmployeeService = async (
   roleId,
   emailId,
@@ -247,21 +255,30 @@ export const createEmployeeService = async (
   gender,
   address,
   emergencyContact,
-  password,
+  //password,
   phone,
-  login_id,
+  //login_id,
   orgId
 ) => {
+  const shortorg = await Prisma.organizations.findFirst({
+    where:{
+      id:orgId,
+    },
+    select:{
+      shortorgname:true
+    }
+  });
+  
+  const name = shortorg? shortorg.shortorgname : "EMP"
+  const login_id = generateLoginId(name,firstName,DOB)
+  // Create Login_id 
+  const hashedPassword = await hashPassword(process.env.DEFAULT_USER_PASSWORD);
   const login_id_check = await Prisma.users.findFirst({
     where: {
       login_id,
     },
   });
   if (login_id_check) {
-    // return {
-    //   message: "login_id already exists. Please enter a different login_id",
-    //   status: 400,
-    // };
     throw new Error(
       "login_id already exists. Please enter a different login_id"
     );
@@ -270,7 +287,7 @@ export const createEmployeeService = async (
     const newUser = await tx.users.create({
       data: {
         email: emailId,
-        password_hash: await hashPassword(password),
+        password_hash: hashedPassword,
         full_name: firstName + " " + lastName,
         phone: phone,
         login_id: login_id,
@@ -289,7 +306,8 @@ export const createEmployeeService = async (
       },
     });
 
-    const newPortalId = await generateEmployeePortalId();
+     const newPortalId = await generateEmployeePortalId();
+   
     console.log("newPortalId>>>>>  , ", newPortalId);
     const newEmployee = await tx.employees.create({
       data: {
@@ -326,17 +344,40 @@ export const createDoctorService = async (
   license_number
 ) => {
   const newPortalId = await generateDoctorPortalId();
-  console.log("newPortalId>>>>>  , ", newPortalId);
-  console.log("password>>>> ", process.env.DEFAULT_PASSWORD);
+
+    const shortorg = await Prisma.organizations.findFirst({
+    where:{
+      id:orgId,
+    },
+    select:{
+      shortorgname:true
+    }
+  });
+  const name = shortorg? shortorg.shortorgname : "DOC"
+  const login_id = generateLoginId(name,firstName,DOB)
+
+    const login_id_check = await Prisma.users.findFirst({
+    where: {
+      login_id,
+    },
+  });
+  if (login_id_check) {
+    throw new Error(
+      "Login Id already exists."
+    );
+  }
+
+  const password = await hashPassword(process.env.DEFAULT_USER_PASSWORD);
+
   return await Prisma.$transaction(async (tx) => {
     const newUser = await tx.users.create({
       data: {
         email: emailId,
         phone: phone,
-        password_hash: await hashPassword(process.env.DEFAULT_PASSWORD),
+        password_hash: password,
         full_name: firstName + " " + lastName,
         phone: phone,
-        login_id: newPortalId,
+        login_id: login_id,
       },
     });
     const user_org = await tx.user_organizations.create({

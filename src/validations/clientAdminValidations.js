@@ -26,12 +26,6 @@ export const validateCreateUser = [
     .withMessage("Phone number must contain only digits"),
   check("firstName").notEmpty().withMessage("Please Enter Full Name"),
 
-  check("login_id").notEmpty().withMessage("Please Enter login Id"),
-  check("password")
-    .notEmpty()
-    .withMessage("Please Enter Password")
-    .isLength({ min: 6 })
-    .withMessage("Password length Should be min 6 digits"),
   handleValidationErrors,
 ];
 
@@ -50,14 +44,10 @@ export const validateCreateDoctor = [
     .withMessage("Phone number must contain only digits"),
   check("firstName").notEmpty().withMessage("Please Enter Full Name"),
 
-  check("login_id").notEmpty().withMessage("Please Enter login Id"),
+  
   check("license_number")
     .notEmpty()
     .withMessage("Please Enter the Liscence Number"),
-  check("password")
-    .notEmpty()
-    .withMessage("Please Enter Password")
-    .isLength({ min: 6 })
-    .withMessage("Password length Should be min 6 digits"),
+
   handleValidationErrors,
 ];

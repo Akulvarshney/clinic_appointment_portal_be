@@ -283,9 +283,9 @@ export const createEmployeeController = async (req, res) => {
       gender,
       address,
       emergencyContact,
-      password,
+      //password,
       phone,
-      login_id,
+      //login_id,
       orgId,
     } = req.body;
 
@@ -298,9 +298,9 @@ export const createEmployeeController = async (req, res) => {
       gender,
       address,
       emergencyContact,
-      password,
+      //password,
       phone,
-      login_id,
+      //login_id,
       orgId
     );
     sendResponse(

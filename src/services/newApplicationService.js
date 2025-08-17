@@ -95,7 +95,7 @@ export const NewApplicationActionService = async (uuid, Action, remarks) => {
 };
 
 export async function ApproveApplication(uuid, record) {
-  const hashedPassword = await hashPassword(process.env.DEFAULT_USER_PASSWORD);
+  const hashedPassword = await hashPassword(process.env.DEFAULT_CLIENT_ADMIN_PASSWORD);
 
   const result = await Prisma.$transaction(
     async (tx) => {
@@ -108,7 +108,7 @@ export async function ApproveApplication(uuid, record) {
           ],
         },
       });
-      if (existingOrg) throw new Error("Organization already exists");
+      if (existingOrg) throw new Error("Organization already exists with this Name or Short Name");
 
       // Check for existing user
       // const existingUser = await tx.users.findUnique({
