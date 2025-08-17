@@ -43,7 +43,6 @@ export const validateCreateDoctor = [
     .isNumeric()
     .withMessage("Phone number must contain only digits"),
   check("firstName").notEmpty().withMessage("Please Enter Full Name"),
-
   
   check("license_number")
     .notEmpty()
