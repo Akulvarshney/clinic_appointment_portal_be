@@ -3,7 +3,7 @@ import {
   createServiceInfo,
   getServicesInfo,
   getActiveServicesInfo,
-  updateServices
+  updateServices,
 } from "../services/serviceManagementService.js";
 export const createServiceController = async (req, res) => {
   try {
@@ -22,24 +22,37 @@ export const createServiceController = async (req, res) => {
 
 export const getServicesController = async (req, res) => {
   try {
-    const { orgId } = req.query;
-    const response = await getServicesInfo(orgId);
-    console.log("response.data", response.data);
-    sendResponse(
+    const { orgId, page = 1, limit = 10, search = "", status } = req.query;
+
+    if (!orgId) {
+      return res.status(400).json({ message: "Organization ID is required" });
+    }
+
+    const result = await getServicesInfo({
+      orgId,
+      page: Number(page),
+      limit: Number(limit),
+      search,
+      status,
+    });
+
+    return sendResponse(
       res,
       {
-        message: "Getting Data Successfully",
-        data: response.data,
+        message: "Services fetched successfully",
+        data: result.data,
         status: 200,
       },
       200
     );
   } catch (error) {
-    console.log("Error herer.   ", error.message);
-    res.status(401).json({ message: "Error: while getting records" });
+    console.error("Error in getServicesController:", error);
+
+    return res.status(error.statusCode || 500).json({
+      message: error.message || "Internal Server Error",
+    });
   }
 };
-
 
 export const getActiveServicesController = async (req, res) => {
   try {
@@ -63,16 +76,28 @@ export const getActiveServicesController = async (req, res) => {
 
 export const updateServicesController = async (req, res) => {
   try {
-    const { id } = req.query;
-    const { status } = req.body;
-    const response = await updateServices(id, status);
+    const { id, serviceName, desc, price, orgId, status } = req.body;
+
+    if (!id) {
+      return res.status(400).json({ message: "Service ID is required" });
+    }
+
+    const response = await updateServices({
+      id,
+      serviceName,
+      desc,
+      price,
+      orgId,
+      status,
+    });
+
     sendResponse(
       res,
-      { message: response.message, status: response.status },
+      { message: "Service updated successfully", data: response },
       200
     );
   } catch (error) {
-    console.log("Error herer.   ", error.message);
-    res.status(401).json({ message: error.message });
+    console.error("Error in updateServicesController:", error.message);
+    res.status(500).json({ message: error.message });
   }
 };

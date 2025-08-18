@@ -25,6 +25,11 @@ import {
   getCategoryById,
   updateCategory,
 } from "../../controller/categoriesManagement.js";
+import {
+  createNotification,
+  getNotificationsByOrg,
+  updateNotification,
+} from "../../controller/notificationCenterController.js";
 
 const router = Router();
 
@@ -49,5 +54,8 @@ router.put("/category/:id", updateCategory);
 router.delete("/category/:id", deleteCategory);
 
 router.get("/getUserDetails/:userId", getUserDetails);
+
+router.get("/getNotificationsByOrg/:organization_id", getNotificationsByOrg);
+router.put("/updateNotification/:id", updateNotification);
 
 export default router;

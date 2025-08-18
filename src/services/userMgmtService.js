@@ -1,5 +1,11 @@
+import prisma from "../prisma.js";
 import Prisma from "../prisma.js";
+import {
+  welcomeDoctoreTemplate,
+  welcomeEmployeeTemplate,
+} from "../util/emailTemplates.js";
 import { hashPassword } from "../util/password.js";
+import { sendEmail } from "../util/sendMail.js";
 
 export const createRoleService = async (roleNname, roleDesc, orgId) => {
   const Newrole = await Prisma.roles.create({
@@ -156,20 +162,82 @@ export const getEmployeesService = async ({
   };
 };
 
-export const getDoctorService = async (orgId) => {
-  const record = await Prisma.doctors.findMany({
-    where: {
+export const getDoctorService = async ({
+  orgId,
+  page = 1,
+  limit = 10,
+  search,
+}) => {
+  try {
+    const searchConditions = [];
+    if (search) {
+      searchConditions.push({
+        OR: [
+          { first_name: { contains: search, mode: "insensitive" } },
+          { last_name: { contains: search, mode: "insensitive" } },
+          { email: { contains: search, mode: "insensitive" } },
+          { phone: { contains: search, mode: "insensitive" } },
+          { specialization: { contains: search, mode: "insensitive" } },
+          { license_number: { contains: search, mode: "insensitive" } },
+          { portalid: { contains: search, mode: "insensitive" } },
+
+          {
+            users: {
+              is: {
+                OR: [
+                  { email: { contains: search, mode: "insensitive" } },
+                  { phone: { contains: search, mode: "insensitive" } },
+                  { full_name: { contains: search, mode: "insensitive" } },
+                  { login_id: { contains: search, mode: "insensitive" } },
+                ],
+              },
+            },
+          },
+        ],
+      });
+    }
+
+    const whereConditions = {
       organization_id: orgId,
       is_valid: true,
-    },
-    orderBy: {
-      portalid: "asc",
-    },
-    include:{
-      users:true
-    }
-  });
-  return record;
+      ...(searchConditions.length > 0 && { AND: searchConditions }),
+    };
+
+    const skip = (page - 1) * limit;
+
+    const totalRecords = await Prisma.doctors.count({
+      where: whereConditions,
+    });
+
+    const records = await Prisma.doctors.findMany({
+      where: whereConditions,
+      orderBy: {
+        portalid: "desc",
+      },
+      include: {
+        users: true,
+      },
+      skip,
+      take: limit,
+    });
+
+    const totalPages = Math.ceil(totalRecords / limit);
+
+    return {
+      message: "Doctors retrieved successfully",
+      status: "success",
+      data: {
+        records,
+        currentPage: page,
+        totalPages,
+        totalRecords,
+        recordsPerPage: limit,
+      },
+    };
+  } catch (error) {
+    console.error("Error in getDoctorService:", error);
+    throw error;
+  }
 };
 
 export const updateRoleService = async (userId, newRoleId, orgId) => {
@@ -262,12 +330,37 @@ async function generateDoctorPortalId() {
   });
 }
 
-function generateLoginId(orgName, firstName, DOB) {
+export async function generateLoginId(orgName, firstName, DOB) {
+  console.log(
+    "Generating login_id for orgName:",
+    orgName,
+    "firstName:",
+    firstName,
+    "DOB:",
+    DOB
+  );
   const prefix = String(orgName).toLowerCase();
-  const firstInitial = firstName.slice(0, 3).toLowerCase();
+  const firstInitial = firstName.slice(3, 7).toLowerCase();
   const dob = new Date(DOB);
   const day = String(dob.getDate()).padStart(2, "0");
-  return `${prefix}_${firstInitial}${day}`;
+
+  const baseId = `${prefix}_${firstInitial}${day}`;
+  let loginId = baseId;
+  let counter = 1;
+
+  // Loop until we find a unique login_id
+  while (true) {
+    const existingUser = await prisma.users.findUnique({
+      where: { login_id: loginId },
+    });
+
+    if (!existingUser) {
+      return loginId;
+    }
+
+    loginId = `${baseId}_${counter}`;
+    counter++;
+  }
 }
 
 export const createEmployeeService = async (
@@ -279,23 +372,28 @@ export const createEmployeeService = async (
   gender,
   address,
   emergencyContact,
-  //password,
   phone,
-  //login_id,
   orgId
 ) => {
   const shortorg = await Prisma.organizations.findFirst({
     where: {
       id: orgId,
     },
-    select: {
-      shortorgname: true,
-    },
   });
 
+  const role = await Prisma.roles.findFirst({
+    where: {
+      id: roleId,
+      organization_id: orgId,
+    },
+  });
+  if (!role) {
+    throw new Error("Role not found for the given organization");
+  }
+
   const name = shortorg ? shortorg.shortorgname : "EMP";
-  const login_id = generateLoginId(name, firstName, DOB);
-  // Create Login_id
+  const login_id = await generateLoginId(name, firstName, DOB);
+
   const hashedPassword = await hashPassword(process.env.DEFAULT_USER_PASSWORD);
   const login_id_check = await Prisma.users.findFirst({
     where: {
@@ -348,9 +446,24 @@ export const createEmployeeService = async (
         organization_id: orgId,
       },
     });
-    if (newEmployee)
+    if (newEmployee) {
+      const { subject, html, text } = welcomeEmployeeTemplate(
+        firstName,
+        shortorg.name,
+        role.name,
+        login_id,
+        process.env.DEFAULT_USER_PASSWORD
+      );
+
+      await sendEmail({
+        to: emailId,
+        subject,
+        html,
+        text,
+      });
+
       return { message: "User created Successfully", status: 200 };
-    else return { message: "Error in generating Employee", status: 400 };
+    } else return { message: "Error in generating Employee", status: 400 };
   });
 };
 
@@ -373,18 +486,18 @@ export const createDoctorService = async (
     where: {
       id: orgId,
     },
-    select: {
-      shortorgname: true,
-    },
   });
   const name = shortorg ? shortorg.shortorgname : "DOC";
-  const login_id = generateLoginId(name, firstName, DOB);
+  const login_id = await generateLoginId(name, firstName, DOB);
+
+  console.log("login_id >>> ", login_id);
 
   const login_id_check = await Prisma.users.findFirst({
     where: {
       login_id,
     },
   });
+
   if (login_id_check) {
     throw new Error("Login Id already exists.");
   }
@@ -431,8 +544,20 @@ export const createDoctorService = async (
         license_number,
       },
     });
-    if (newEmployee)
+    if (newEmployee) {
+      const { subject, html, text } = welcomeDoctoreTemplate(
+        firstName,
+        shortorg.name,
+        login_id,
+        process.env.DEFAULT_USER_PASSWORD
+      );
+      await sendEmail({
+        to: emailId,
+        subject,
+        html,
+        text,
+      });
       return { message: "Doctor created Successfully", status: 200 };
-    else return { message: "Error in generating Doctor", status: 400 };
+    } else return { message: "Error in generating Doctor", status: 400 };
   });
 };

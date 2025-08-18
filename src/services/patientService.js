@@ -1,5 +1,7 @@
 import Prisma from "../prisma.js";
+import { welcomeClientTemplate } from "../util/emailTemplates.js";
 import { hashPassword } from "../util/password.js";
+import { sendEmail } from "../util/sendMail.js";
 
 async function generateClientPortalId() {
   return await Prisma.$transaction(async (tx) => {
@@ -59,6 +61,13 @@ export const registerClientService = async (
       },
     });
 
+    const orgName = await tx.organizations.findUnique({
+      where: { id: organization_id },
+    });
+    if (!orgName) {
+      throw new Error("Organization not found");
+    }
+
     const user_org = await tx.user_organizations.create({
       data: {
         user_id: newUser.id,
@@ -90,8 +99,23 @@ export const registerClientService = async (
       },
     });
 
-    if (client) return { message: "Registration Successful", status: 200 };
-    else return { message: "Error in Registration", status: 400 };
+    if (client) {
+      const { subject, text, html } = welcomeClientTemplate(
+        Firstname,
+        orgName.name,
+        portal_id,
+        process.env.DEFAULT_CLIENT_PASSWORD
+      );
+
+      await sendEmail({
+        to: email,
+        subject,
+        text,
+        html,
+      });
+
+      return { message: "Registration Successful", status: 200 };
+    } else return { message: "Error in Registration", status: 400 };
   });
 };
 

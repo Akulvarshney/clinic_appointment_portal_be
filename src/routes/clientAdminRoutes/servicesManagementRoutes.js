@@ -4,14 +4,14 @@ import {
   createServiceController,
   getServicesController,
   updateServicesController,
-  getActiveServicesController
+  getActiveServicesController,
 } from "../../controller/serviceManagementController.js";
 
 const router = Router();
 
 router.post("/createService", createServiceController);
 router.get("/getServices", getServicesController);
-router.patch("/updateService", updateServicesController);
-router.get("/getActiveServices" , getActiveServicesController )
+router.put("/updateService", updateServicesController);
+router.get("/getActiveServices", getActiveServicesController);
 
 export default router;

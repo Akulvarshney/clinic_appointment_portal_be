@@ -49,24 +49,64 @@ export const createServiceInfo = async (serviceName, desc, price, orgId) => {
   });
 };
 
-export const getServicesInfo = async (orgId) => {
-  const Services = await Prisma.services.findMany({
-    where: {
-      organization_id: orgId,
-    },
-  });
-  return {
-    message: "Getting Services Successfully",
-    status: 200,
-    data: Services,
+export const getServicesInfo = async ({
+  orgId,
+  page = 1,
+  limit = 10,
+  search = "",
+  status,
+}) => {
+  const skip = (page - 1) * limit;
+
+  // Build dynamic filters
+  const whereCondition = {
+    organization_id: orgId,
+    ...(status ? { status } : {}), // filter by ENABLED/DISABLED if provided
+    is_valid: true,
+    OR: search
+      ? [
+          { portal_id: { contains: search, mode: "insensitive" } },
+          { name: { contains: search, mode: "insensitive" } },
+          { description: { contains: search, mode: "insensitive" } },
+        ]
+      : undefined,
   };
+
+  try {
+    const [services, totalCount] = await Promise.all([
+      Prisma.services.findMany({
+        where: whereCondition,
+        skip,
+        take: limit,
+        orderBy: { created_at: "desc" },
+      }),
+      Prisma.services.count({ where: whereCondition }),
+    ]);
+
+    return {
+      message: "Getting Services Successfully",
+      status: 200,
+      data: {
+        services,
+        totalRecords: totalCount,
+        currentPage: page,
+        totalPages: Math.ceil(totalCount / limit),
+      },
+    };
+  } catch (error) {
+    console.error("Database error in getServicesInfo:", error);
+    throw {
+      statusCode: 500,
+      message: "Failed to fetch services",
+    };
+  }
 };
 
 export const getActiveServicesInfo = async (orgId) => {
   const Services = await Prisma.services.findMany({
     where: {
       organization_id: orgId,
-      status:"ENABLED"
+      status: "ENABLED",
     },
   });
   return {
@@ -76,24 +116,26 @@ export const getActiveServicesInfo = async (orgId) => {
   };
 };
 
-
-
-export const updateServices = async (id, status) => {
-  console.log("status>>>> "  , status)
-  await Prisma.services.update({
-  where:{
-      id:id
+export const updateServices = async ({
+  id,
+  serviceName,
+  desc,
+  price,
+  orgId,
+  status,
+}) => {
+  const updatedService = await Prisma.services.update({
+    where: { id },
+    data: {
+      ...(serviceName && { name: serviceName }),
+      ...(desc && { description: desc }),
+      ...(price && { price }),
+      ...(orgId && { organization_id: orgId }),
+      ...(status && { status }),
     },
-    data:{
-      status:status
-    }
+  });
 
-  })
-  return {
-    message: "Updated Services Successfully",
-    status: 200,
-   
-  };
+  return updatedService;
 };
 
 export const updateServicesInfo = async (req, res) => {};

@@ -7,6 +7,7 @@ import {
   validateStatus,
   validateApplicationAction,
 } from "../../validations/newApplicationValidations.js";
+import { createNotification } from "../../controller/notificationCenterController.js";
 
 const router = Router();
 
@@ -19,5 +20,7 @@ router.post(
 );
 
 router.post("/applicationAction", NewApplicationAction);
+
+router.post("/createNotification", createNotification);
 
 export default router;

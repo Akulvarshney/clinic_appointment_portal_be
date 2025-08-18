@@ -279,11 +279,25 @@ export const updateRoleController = async (req, res) => {
 
 export const getDoctorController = async (req, res) => {
   try {
-    const { orgId } = req.query;
-    const response = await getDoctorService(orgId);
+    const { orgId, page = 1, limit = 10, search } = req.query;
+
+    const pageNum = Math.max(1, parseInt(page));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
+
+    const response = await getDoctorService({
+      orgId,
+      page: pageNum,
+      limit: limitNum,
+      search: search?.trim(),
+    });
+
     sendResponse(
       res,
-      { message: response.message, response, status: response.status },
+      {
+        message: response.message,
+        data: response.data,
+        status: response.status,
+      },
       200
     );
   } catch (err) {

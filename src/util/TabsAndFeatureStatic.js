@@ -133,6 +133,10 @@ export const tabFeatureConfig = [
         feature_unique_name: "CLIENT_CATEGORIES",
         feature_name: "Client Categories",
       },
+      {
+        feature_unique_name: "NOTIFICATION_CENTER",
+        feature_name: "Notification Center",
+      },
     ],
   },
 ];
