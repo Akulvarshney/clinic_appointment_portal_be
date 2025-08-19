@@ -7,7 +7,7 @@ import {
   validateStatus,
   validateApplicationAction,
 } from "../../validations/newApplicationValidations.js";
-import { createNotification } from "../../controller/notificationCenterController.js";
+import { createNotification, getALLNotifications , changeNotificationStatusMaster} from "../../controller/notificationCenterController.js";
 
 const router = Router();
 
@@ -21,6 +21,10 @@ router.post(
 
 router.post("/applicationAction", NewApplicationAction);
 
+
+//super Admin Routes for Notification
 router.post("/createNotification", createNotification);
+router.get("/getSAnotifications", getALLNotifications);
+router.patch("/changeNotificationStatus", changeNotificationStatusMaster);
 
 export default router;

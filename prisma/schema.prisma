@@ -49,25 +49,25 @@ model organization_applications {
 }
 
 model organizations {
-  id                 String               @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  name               String               @unique @db.VarChar(255)
-  created_at         DateTime?            @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime?            @default(now()) @db.Timestamptz(6)
-  is_valid           Boolean              @default(true)
-  is_complete        Boolean?             @default(false)
-  gstnumber          String?              @db.VarChar(100)
-  address            String?              @db.VarChar(100)
-  shortorgname       String?              @db.VarChar(20)
-  appointments       appointments[]
-  categories         categories[]
-  clients            clients[]
-  doctors            doctors[]
-  employees          employees[]
-  notifications      notifications[]
-  resources          resources[]
-  roles              roles[]
-  services           services[]
-  user_organizations user_organizations[]
+  id                          String                        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name                        String                        @unique @db.VarChar(255)
+  created_at                  DateTime?                     @default(now()) @db.Timestamptz(6)
+  updated_at                  DateTime?                     @default(now()) @db.Timestamptz(6)
+  is_valid                    Boolean                       @default(true)
+  is_complete                 Boolean?                      @default(false)
+  gstnumber                   String?                       @db.VarChar(100)
+  address                     String?                       @db.VarChar(100)
+  shortorgname                String?                       @db.VarChar(20)
+  appointments                appointments[]
+  categories                  categories[]
+  clients                     clients[]
+  doctors                     doctors[]
+  employees                   employees[]
+  notifications_organizations notifications_organizations[]
+  resources                   resources[]
+  roles                       roles[]
+  services                    services[]
+  user_organizations          user_organizations[]
 }
 
 model roles {
@@ -197,25 +197,26 @@ model doctors {
 }
 
 model employees {
-  id               String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  portalid         String        @unique @db.VarChar(20)
-  userid           String        @unique @db.Uuid
-  organization_id  String        @db.Uuid
-  first_name       String?       @db.VarChar(255)
-  last_name        String?       @db.VarChar(255)
-  email            String?       @db.VarChar(255)
-  phone            String?       @db.VarChar(20)
-  address          String?       @db.VarChar(250)
-  date_of_birth    DateTime?     @db.Date
-  is_valid         Boolean?      @default(true)
+  id               String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  portalid         String         @unique @db.VarChar(20)
+  userid           String         @unique @db.Uuid
+  organization_id  String         @db.Uuid
+  first_name       String?        @db.VarChar(255)
+  last_name        String?        @db.VarChar(255)
+  email            String?        @db.VarChar(255)
+  phone            String?        @db.VarChar(20)
+  address          String?        @db.VarChar(250)
+  date_of_birth    DateTime?      @db.Date
+  is_valid         Boolean?       @default(true)
   gender           gender?
-  department       String?       @db.VarChar(100)
-  designation      String?       @db.VarChar(100)
-  emergencycontact String?       @db.VarChar(15)
-  created_at       DateTime?     @default(now()) @db.Timestamptz(6)
-  updated_at       DateTime?     @default(now()) @db.Timestamptz(6)
-  organizations    organizations @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  users            users         @relation(fields: [userid], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  department       String?        @db.VarChar(100)
+  designation      String?        @db.VarChar(100)
+  emergencycontact String?        @db.VarChar(15)
+  created_at       DateTime?      @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime?      @default(now()) @db.Timestamptz(6)
+  appointments     appointments[]
+  organizations    organizations  @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users            users          @relation(fields: [userid], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 model resources {
@@ -270,11 +271,13 @@ model appointments {
   cancel_remarks   String?
   cancel_date_time DateTime?          @db.Timestamp(6)
   created_at       DateTime?          @default(now()) @db.Timestamp(6)
+  employee_id      String?            @db.Uuid
   clients          clients?           @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   doctors          doctors?           @relation(fields: [doctor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   organizations    organizations      @relation(fields: [organization_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   resources        resources          @relation(fields: [resource_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   services         services?          @relation(fields: [service_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  employees        employees?         @relation(fields: [employee_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_appointments_employees")
 
   @@index([client_id], map: "idx_appointments_client_id")
   @@index([date_time], map: "idx_appointments_date_time")
@@ -317,14 +320,26 @@ model user_otps {
 }
 
 model notifications {
+  id                          String                        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name                        String                        @db.VarChar(255)
+  description                 String?                       @db.VarChar(500)
+  is_valid                    Boolean?                      @default(true)
+  created_at                  DateTime?                     @default(now()) @db.Timestamptz(6)
+  updated_at                  DateTime?                     @default(now()) @db.Timestamptz(6)
+  notifications_organizations notifications_organizations[]
+}
+
+model notifications_organizations {
   id              String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  name            String        @db.VarChar(255)
-  description     String?       @db.VarChar(500)
-  is_active       Boolean?      @default(true)
+  notification_id String        @db.Uuid
   organization_id String        @db.Uuid
+  is_active       Boolean?      @default(false)
   created_at      DateTime?     @default(now()) @db.Timestamptz(6)
   updated_at      DateTime?     @default(now()) @db.Timestamptz(6)
-  organizations   organizations @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_organization")
+  notifications   notifications @relation(fields: [notification_id], references: [id], onDelete: Cascade, map: "fk_notification")
+  organizations   organizations @relation(fields: [organization_id], references: [id], onDelete: Cascade, map: "fk_organization")
+
+  @@unique([notification_id, organization_id], map: "uq_notification_org")
 }
 
 enum ApplicationStatus {

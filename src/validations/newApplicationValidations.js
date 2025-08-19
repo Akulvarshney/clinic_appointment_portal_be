@@ -9,9 +9,14 @@ export const validateNewApplication = [
     .withMessage("Phone number must be exactly 10 digits")
     .isNumeric()
     .withMessage("Phone number must contain only digits"),
-  check("org_short_name")
+
+    check("org_short_name")
     .notEmpty()
-    .withMessage("Organization short Name is required."),
+    .withMessage("Organization short Name is required.")
+    .isLength({ max: 4 })
+    .withMessage("Organization short name must not be more than 4 characters")
+    .matches(/^[A-Za-z0-9]+$/)
+    .withMessage("Organization short name must not contain special characters"),
 
   check("email")
     .notEmpty()

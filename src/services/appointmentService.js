@@ -56,7 +56,7 @@ export const bookAppointmentService = async(
             end_time:end,
             remarks:remarks,
             service_id:serviceId,
-            doctor_id:doctorId
+           // doctor_id:doctorId
                 }
         })
         console.log("Booked APPOINTMETNT>>>> " , appt)
@@ -84,7 +84,7 @@ const endOfDay = new Date(new Date(date).setUTCHours(23, 59, 59, 999));
         not: "CANCELLED"
         }
     },
-        include: {
+    include: {
       clients: {
         select: {
           id: true,
@@ -99,6 +99,16 @@ const endOfDay = new Date(new Date(date).setUTCHours(23, 59, 59, 999));
           name: true,
         },
       },
+      doctors:{
+        select:{
+          first_name:true,
+        }
+      },
+      employees:{
+        select:{
+          first_name:true
+        }
+      }
     },
   });
   return appts;

@@ -106,7 +106,7 @@ export const registerClientService = async (
         portal_id,
         process.env.DEFAULT_CLIENT_PASSWORD
       );
-
+//check if the serive is valid then send the emai or else not
       await sendEmail({
         to: email,
         subject,

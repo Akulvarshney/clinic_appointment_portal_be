@@ -117,7 +117,7 @@ export async function ApproveApplication(uuid, record) {
 
   const result = await Prisma.$transaction(
     async (tx) => {
-      // Check for existing organization
+     
       const existingOrg = await tx.organizations.findFirst({
         where: {
           OR: [

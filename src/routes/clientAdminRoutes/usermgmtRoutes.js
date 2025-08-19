@@ -56,6 +56,6 @@ router.delete("/category/:id", deleteCategory);
 router.get("/getUserDetails/:userId", getUserDetails);
 
 router.get("/getNotificationsByOrg/:organization_id", getNotificationsByOrg);
-router.put("/updateNotification/:id", updateNotification);
+router.put("/updateNotification", updateNotification);
 
 export default router;

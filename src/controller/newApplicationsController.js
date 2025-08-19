@@ -6,6 +6,7 @@ import {
   NewApplicationActionService,
   checkShortNameService,
 } from "../services/newApplicationService.js";
+import { sendEmail } from "../util/sendMail.js";
 import { sendTrackingTemplate } from "../util/emailTemplates.js";
 import { sendResponse, sendErrorResponse } from "../util/response.js";
 
@@ -14,6 +15,7 @@ export const submitNewApplicationWithCheck = async (req, res) => {
     const { org_name, org_short_name, email, phone, client_name, address } =
       req.body;
 
+    // Required field check
     if (!org_name || !org_short_name || !email || !phone || !client_name) {
       return sendErrorResponse(
         res,
@@ -22,11 +24,13 @@ export const submitNewApplicationWithCheck = async (req, res) => {
       );
     }
 
+    // Email format check
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return sendErrorResponse(res, "Invalid email format.", 400);
     }
 
+    // Phone format check
     const mobileRegex = /^[0-9]{10}$/;
     if (!mobileRegex.test(phone)) {
       return sendErrorResponse(
@@ -36,6 +40,7 @@ export const submitNewApplicationWithCheck = async (req, res) => {
       );
     }
 
+    // Check if short name already exists
     const existing = await prisma.organization_applications.findFirst({
       where: { org_short_name },
     });
@@ -48,26 +53,32 @@ export const submitNewApplicationWithCheck = async (req, res) => {
       );
     }
 
-    const newApp = await prisma.organization_applications.create({
-      data: {
-        organization_name: org_name,
-        org_short_name,
-        email,
-        phone,
-        clientname: client_name,
-        address,
-      },
-    });
+    // Use transaction to create and send email
+    const newApp = await prisma.$transaction(async (tx) => {
+      const createdApp = await tx.organization_applications.create({
+        data: {
+          organization_name: org_name,
+          org_short_name,
+          email,
+          phone,
+          clientname: client_name,
+          address,
+        },
+      });
 
-    const trackingId = newApp.trackingid;
-
-    if (newApp) {
+      // Send email after creating
       const { subject, html, text } = sendTrackingTemplate(
         client_name,
-        trackingId
+        createdApp.trackingid
       );
-      await sendEmail({ to: user.email, subject, html, text });
-    }
+
+      await sendEmail({ to: email, subject, html, text });
+
+      return createdApp;
+
+    },{
+      timeout: 20000 // 20 seconds
+    });
 
     return sendResponse(
       res,
@@ -78,7 +89,7 @@ export const submitNewApplicationWithCheck = async (req, res) => {
       201
     );
   } catch (error) {
-    return sendErrorResponse(res, error, 500);
+    return sendErrorResponse(res, error.message || "Internal Server Error", 500);
   }
 };
 

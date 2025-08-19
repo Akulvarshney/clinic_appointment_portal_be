@@ -4,17 +4,34 @@ import { sendErrorResponse, sendResponse } from "../util/response.js";
 export const getNotificationsByOrg = async (req, res) => {
   try {
     const { organization_id } = req.params;
-
-    const notifications = await prisma.notifications.findMany({
-      where: { organization_id },
+    const notifications = await prisma.notifications_organizations.findMany({
+      where: {
+        organization_id,
+        notifications: {
+          is_valid: true, 
+        },
+      },
       orderBy: { created_at: "desc" },
+      include: {
+        notifications: true, 
+      },
     });
 
+    const formatted = notifications.map((n) => ({
+          id: n.id,                        // mapping id
+          notification_id: n.notification_id,
+          organization_id: n.organization_id,
+          name: n.notifications.name,      // flattened
+          description: n.notifications.description,
+          is_active: n.is_active,
+          created_at: n.created_at,
+          updated_at: n.updated_at,
+        }));
     return sendResponse(
       res,
       {
         message: "Notifications retrieved successfully",
-        data: notifications,
+        data: formatted,
       },
       200
     );
@@ -24,6 +41,7 @@ export const getNotificationsByOrg = async (req, res) => {
   }
 };
 
+//Used by SuperAdmin
 export const createNotification = async (req, res) => {
   try {
     const { name, description } = req.body;
@@ -41,14 +59,21 @@ export const createNotification = async (req, res) => {
       );
     }
 
-    const notifications = await prisma.$transaction(
+    const notification = await prisma.notifications.create({
+      data: {
+        name,
+        description,
+        is_valid: true,
+      },
+    });
+
+    const notificationsOrg = await prisma.$transaction(
       organizations.map((org) =>
-        prisma.notifications.create({
+        prisma.notifications_organizations.create({
           data: {
-            name,
-            description,
-            is_active: false,
+            notification_id: notification.id,
             organization_id: org.id,
+            is_active: false,
           },
         })
       )
@@ -57,27 +82,86 @@ export const createNotification = async (req, res) => {
     return sendResponse(
       res,
       {
-        message: "Notification created successfully for all organizations",
-        data: notifications,
+        message: "Notification created and assigned to all organizations",
+        data: {
+          notification,
+          notificationsOrg,
+        },
       },
       201
     );
   } catch (error) {
-    console.error("Error creating notifications for organizations:", error);
+    console.error("Error creating notification:", error);
     return sendErrorResponse(res, error, 500);
   }
 };
 
+//Used by superAdmin
+export const getALLNotifications = async (req, res) => {
+  try {
+    
+
+    const notifications = await prisma.notifications.findMany({
+      orderBy: { created_at: "desc" },
+    });
+
+    return sendResponse(
+      res,
+      {
+        message: "Notifications retrieved successfully",
+        data: notifications,
+      },
+      200
+    );
+  } catch (error) {
+    console.error("Error fetching notifications:", error);
+    return sendErrorResponse(res, error, 500);
+  }
+};
+
+export const changeNotificationStatusMaster = async (req, res) => {
+  try {
+    const { id } = req.query;
+    const { enabled } = req.body; 
+
+    await prisma.$transaction(async (tx) => {
+      // Update master notification
+      await tx.notifications.update({
+        where: { id },
+        data: { is_valid: enabled },
+      });
+
+      await tx.notifications_organizations.updateMany({
+        where: { notification_id: id },
+        data: { is_active: false },
+      });
+    });
+
+    return sendResponse(
+      res,
+      {
+        message: "Notifications updated successfully",
+      },
+      200
+    );
+  } catch (error) {
+    console.error("Error updating notifications:", error);
+    return sendErrorResponse(res, error, 500);
+  }
+};
+
+
+
+
 export const updateNotification = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { name, description, is_active } = req.body;
+    const { id } = req.query;
+    const {is_active} = req.body;
 
-    const updatedNotification = await prisma.notifications.update({
+
+    const updatedNotification = await prisma.notifications_organizations.update({
       where: { id },
       data: {
-        name,
-        description,
         is_active,
         updated_at: new Date(),
       },
