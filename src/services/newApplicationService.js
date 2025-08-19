@@ -111,19 +111,18 @@ export const NewApplicationActionService = async (uuid, Action, remarks) => {
 };
 
 export async function ApproveApplication(uuid, record) {
+  console.log("Asd");
   const hashedPassword = await hashPassword(
     process.env.DEFAULT_CLIENT_ADMIN_PASSWORD
   );
 
+  console.log("Approving application for:", hashPassword);
+
   const result = await Prisma.$transaction(
     async (tx) => {
-     
       const existingOrg = await tx.organizations.findFirst({
         where: {
-          OR: [
-            { name: record.organization_name },
-            { shortorgname: record.org_short_name },
-          ],
+          OR: [{ shortorgname: record.org_short_name }],
         },
       });
       if (existingOrg)
@@ -267,25 +266,25 @@ export async function ApproveApplication(uuid, record) {
         }
       }
 
+      const { subject, html, text } = sendApproveApplicationTemplate(
+        record.clientname,
+        record.trackingid,
+        loginId,
+        process.env.DEFAULT_CLIENT_ADMIN_PASSWORD
+      );
+      await sendEmail({
+        to: record.email,
+        subject,
+        html,
+        text,
+      });
+
       return { organizationId: newOrg.id, userId: newUser.id };
     },
     {
       timeout: 20000,
     }
   );
-
-  const { subject, html, text } = sendApproveApplicationTemplate(
-    record.clientname,
-    record.trackingid,
-    loginId,
-    process.env.DEFAULT_CLIENT_ADMIN_PASSWORD
-  );
-  await sendEmail({
-    to: record.email,
-    subject,
-    html,
-    text,
-  });
 
   return result;
 }

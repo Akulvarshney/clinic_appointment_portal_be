@@ -54,31 +54,33 @@ export const submitNewApplicationWithCheck = async (req, res) => {
     }
 
     // Use transaction to create and send email
-    const newApp = await prisma.$transaction(async (tx) => {
-      const createdApp = await tx.organization_applications.create({
-        data: {
-          organization_name: org_name,
-          org_short_name,
-          email,
-          phone,
-          clientname: client_name,
-          address,
-        },
-      });
+    const newApp = await prisma.$transaction(
+      async (tx) => {
+        const createdApp = await tx.organization_applications.create({
+          data: {
+            organization_name: org_name,
+            org_short_name,
+            email,
+            phone,
+            clientname: client_name,
+            address,
+          },
+        });
 
-      // Send email after creating
-      const { subject, html, text } = sendTrackingTemplate(
-        client_name,
-        createdApp.trackingid
-      );
+        // Send email after creating
+        const { subject, html, text } = sendTrackingTemplate(
+          client_name,
+          createdApp.trackingid
+        );
 
-      await sendEmail({ to: email, subject, html, text });
+        await sendEmail({ to: email, subject, html, text });
 
-      return createdApp;
-
-    },{
-      timeout: 20000 // 20 seconds
-    });
+        return createdApp;
+      },
+      {
+        timeout: 20000, // 20 seconds
+      }
+    );
 
     return sendResponse(
       res,
@@ -89,7 +91,11 @@ export const submitNewApplicationWithCheck = async (req, res) => {
       201
     );
   } catch (error) {
-    return sendErrorResponse(res, error.message || "Internal Server Error", 500);
+    return sendErrorResponse(
+      res,
+      error.message || "Internal Server Error",
+      500
+    );
   }
 };
 
@@ -137,7 +143,7 @@ export const NewApplicationAction = async (req, res) => {
   try {
     const { id, Action, Remarks } = req.body;
     if (Action === "REJECTED" && (!Remarks || Remarks === "")) {
-      return sendResponse(res, { message: "Remarks is mandatory" });
+      return sendResponse(res, { message: "Remarks is mandatory" }, 400);
     }
     const response = await NewApplicationActionService(id, Action, Remarks);
     sendResponse(res, { message: response }, 200);

@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const prisma = new PrismaClient({
-  log: ["query", "error"],
+  log: ["error"],
   datasources: {
     db: {
       url: process.env.DATABASE_URL,

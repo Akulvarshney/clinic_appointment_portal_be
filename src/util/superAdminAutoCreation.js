@@ -57,7 +57,6 @@ export const syncTabsAndFeatures = async () => {
         },
       });
     } else {
-      // Update path if missing or changed
       if (tab.tab_path !== tabConfig.tab_path) {
         tab = await prisma.tabs.update({
           where: { id: tab.id },
@@ -66,7 +65,6 @@ export const syncTabsAndFeatures = async () => {
       }
     }
 
-    // Always sync features for the tab
     for (const featureConfig of tabConfig.features) {
       const existingFeature = await prisma.feature.findUnique({
         where: { feature_unique_name: featureConfig.feature_unique_name },
@@ -84,7 +82,6 @@ export const syncTabsAndFeatures = async () => {
       }
     }
 
-    // Always sync tab-role and feature-role mapping for all roles
     const roles = await prisma.roles.findMany();
 
     for (const role of roles) {
@@ -94,13 +91,20 @@ export const syncTabsAndFeatures = async () => {
         where: { tab_id: tab.id, role_id: role.id },
       });
 
+      const tabRoleIsValid = role.is_admin || false;
+
       if (!tabRole) {
         tabRole = await prisma.tabs_role_table.create({
           data: {
             tab_id: tab.id,
             role_id: role.id,
-            is_valid: false,
+            is_valid: tabRoleIsValid,
           },
+        });
+      } else if (role.is_admin && !tabRole.is_valid) {
+        tabRole = await prisma.tabs_role_table.update({
+          where: { id: tabRole.id },
+          data: { is_valid: true },
         });
       }
 
@@ -116,13 +120,20 @@ export const syncTabsAndFeatures = async () => {
           },
         });
 
+        const featureIsValid = role.is_admin || false;
+
         if (!featureTabRole) {
           await prisma.feature_tab_role.create({
             data: {
               feature_id: feature.id,
               tab_role_id: tabRole.id,
-              is_valid: false,
+              is_valid: featureIsValid,
             },
+          });
+        } else if (role.is_admin && !featureTabRole.is_valid) {
+          await prisma.feature_tab_role.update({
+            where: { id: featureTabRole.id },
+            data: { is_valid: true },
           });
         }
       }
