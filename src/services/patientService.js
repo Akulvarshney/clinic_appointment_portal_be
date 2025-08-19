@@ -2,6 +2,7 @@ import Prisma from "../prisma.js";
 import { welcomeClientTemplate } from "../util/emailTemplates.js";
 import { hashPassword } from "../util/password.js";
 import { sendEmail } from "../util/sendMail.js";
+import {checkNotificationActive} from "../util/checkNotificationActive.js"
 
 async function generateClientPortalId() {
   return await Prisma.$transaction(async (tx) => {
@@ -100,19 +101,27 @@ export const registerClientService = async (
     });
 
     if (client) {
-      const { subject, text, html } = welcomeClientTemplate(
-        Firstname,
-        orgName.name,
-        portal_id,
-        process.env.DEFAULT_CLIENT_PASSWORD
-      );
-//check if the serive is valid then send the emai or else not
-      await sendEmail({
-        to: email,
-        subject,
-        text,
-        html,
-      });
+
+      const valid_notification= await checkNotificationActive(organization_id,"SEND_CLIENT_REG_EMAIL")
+      
+        if(valid_notification){
+            console.log("Sending Email")
+          const { subject, text, html } = welcomeClientTemplate(
+              Firstname,
+              orgName.name,
+              portal_id,
+              process.env.DEFAULT_CLIENT_PASSWORD
+            );
+          await sendEmail({
+            to: email,
+            subject,
+            text,
+            html,
+          });
+        }
+        else{
+          console.log("not sending email")
+        }
 
       return { message: "Registration Successful", status: 200 };
     } else return { message: "Error in Registration", status: 400 };

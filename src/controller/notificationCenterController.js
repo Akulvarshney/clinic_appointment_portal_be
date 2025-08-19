@@ -44,7 +44,7 @@ export const getNotificationsByOrg = async (req, res) => {
 //Used by SuperAdmin
 export const createNotification = async (req, res) => {
   try {
-    const { name, description } = req.body;
+    const { name, description , uniqueName} = req.body;
 
     const organizations = await prisma.organizations.findMany({
       where: { is_valid: true },
@@ -63,6 +63,7 @@ export const createNotification = async (req, res) => {
       data: {
         name,
         description,
+        unique_notification_name:uniqueName,
         is_valid: true,
       },
     });

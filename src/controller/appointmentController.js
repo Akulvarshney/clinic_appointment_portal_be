@@ -24,6 +24,7 @@ export const bookAppointmentController = async(req , res) =>{
       remarks,
       doctorId,
       serviceId,
+      employeeId
     } = req.body;
     
       try {
@@ -37,7 +38,9 @@ export const bookAppointmentController = async(req , res) =>{
       orgId,
       remarks,
       doctorId,
-      serviceId,);
+      serviceId,
+      employeeId
+    );
         res.json(response); 
       } catch (error) {
         console.error("Error in Appointment Scheduling:", error);

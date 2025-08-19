@@ -38,7 +38,8 @@ export const bookAppointmentService = async (
   orgId,
   remarks,
   doctorId,
-  serviceId
+  serviceId,
+  employeeId
 ) => {
   const portal_id = await generateAppointmentPortal_id();
   console.log("portal_id>> ", portal_id);
@@ -55,6 +56,7 @@ export const bookAppointmentService = async (
       remarks: remarks,
       service_id: serviceId,
       doctor_id: doctorId ? doctorId : null,
+      employee_id:employeeId ? employeeId:null,
     },
   });
   console.log("Booked APPOINTMETNT>>>> ", appt);

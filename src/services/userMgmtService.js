@@ -6,6 +6,7 @@ import {
 } from "../util/emailTemplates.js";
 import { hashPassword } from "../util/password.js";
 import { sendEmail } from "../util/sendMail.js";
+import {checkNotificationActive} from "../util/checkNotificationActive.js"
 
 export const createRoleService = async (roleNname, roleDesc, orgId) => {
   const Newrole = await Prisma.roles.create({
@@ -340,7 +341,7 @@ export async function generateLoginId(orgName, firstName, DOB) {
     DOB
   );
   const prefix = String(orgName).toLowerCase();
-  const firstInitial = firstName.slice(3, 7).toLowerCase();
+  const firstInitial = firstName.slice(0, 3).toLowerCase();
   const dob = new Date(DOB);
   const day = String(dob.getDate()).padStart(2, "0");
 
@@ -348,7 +349,6 @@ export async function generateLoginId(orgName, firstName, DOB) {
   let loginId = baseId;
   let counter = 1;
 
-  // Loop until we find a unique login_id
   while (true) {
     const existingUser = await prisma.users.findUnique({
       where: { login_id: loginId },
@@ -447,20 +447,26 @@ export const createEmployeeService = async (
       },
     });
     if (newEmployee) {
-      const { subject, html, text } = welcomeEmployeeTemplate(
-        firstName,
-        shortorg.name,
-        role.name,
-        login_id,
-        process.env.DEFAULT_USER_PASSWORD
-      );
-
-      await sendEmail({
-        to: emailId,
-        subject,
-        html,
-        text,
-      });
+       const valid_notification= await checkNotificationActive(orgId,"SEND_EMP_REG_EMAIL")
+       if(valid_notification){
+        console.log("Sending email")
+          const { subject, html, text } = welcomeEmployeeTemplate(
+            firstName,
+            shortorg.name,
+            role.name,
+            login_id,
+            process.env.DEFAULT_USER_PASSWORD
+          );
+          await sendEmail({
+            to: emailId,
+            subject,
+            html,
+            text,
+          });
+    }
+    else{
+      console.log("Not Sending email")
+    }
 
       return { message: "User created Successfully", status: 200 };
     } else return { message: "Error in generating Employee", status: 400 };
@@ -545,18 +551,24 @@ export const createDoctorService = async (
       },
     });
     if (newEmployee) {
-      const { subject, html, text } = welcomeDoctoreTemplate(
-        firstName,
-        shortorg.name,
-        login_id,
-        process.env.DEFAULT_USER_PASSWORD
-      );
-      await sendEmail({
-        to: emailId,
-        subject,
-        html,
-        text,
-      });
+      const valid_notification= await checkNotificationActive(orgId,"SEND_DOCT_REG_EMAIL")
+      if(valid_notification){
+        console.log("send email");
+        const { subject, html, text } = welcomeDoctoreTemplate(
+          firstName,
+          shortorg.name,
+          login_id,
+          process.env.DEFAULT_USER_PASSWORD
+        );
+        await sendEmail({
+          to: emailId,
+          subject,
+          html,
+          text,
+        });
+      }else{
+        console.log("Not sending email")
+      }
       return { message: "Doctor created Successfully", status: 200 };
     } else return { message: "Error in generating Doctor", status: 400 };
   });
