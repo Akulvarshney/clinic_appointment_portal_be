@@ -40,8 +40,7 @@ export const getNotificationsByOrg = async (req, res) => {
     return sendErrorResponse(res, error, 500);
   }
 };
-
-//Used by SuperAdmin New added commit ?
+// Used by SuperAdmin New added commit ?
 export const createNotification = async (req, res) => {
   try {
     const { name, description, uniqueName } = req.body;
@@ -51,44 +50,36 @@ export const createNotification = async (req, res) => {
       select: { id: true },
     });
 
-    // if (!organizations || organizations.length === 0) {
-    //   return sendResponse(
-    //     res,
-    //     { message: "No organizations found to assign notifications" },
-    //     404
-    //   );
-    // }
+    const result = await prisma.$transaction(async (tx) => {
+      // create notification
+      const notification = await tx.notifications.create({
+        data: {
+          name,
+          description,
+          unique_notification_name: uniqueName,
+          is_valid: true,
+        },
+      });
 
-    const notification = await prisma.notifications.create({
-      data: {
-        name,
-        description,
-        unique_notification_name: uniqueName,
-        is_valid: true,
-      },
+      // assign to organizations (only if orgs exist)
+      if (organizations.length > 0) {
+        await tx.notifications_organizations.createMany({
+          data: organizations.map((org) => ({
+            notification_id: notification.id,
+            organization_id: org.id,
+            is_active: false,
+          })),
+        });
+      }
+
+      return notification;
     });
-    if (organizations.length > 0) {
-      const notificationsOrg = await prisma.$transaction(
-        organizations.map((org) =>
-          prisma.notifications_organizations.create({
-            data: {
-              notification_id: notification.id,
-              organization_id: org.id,
-              is_active: false,
-            },
-          })
-        )
-      );
-    }
 
     return sendResponse(
       res,
       {
         message: "Notification created and assigned to all organizations",
-        data: {
-          notification,
-          notificationsOrg,
-        },
+        data: result,
       },
       201
     );
