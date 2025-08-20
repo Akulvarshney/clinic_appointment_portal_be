@@ -41,7 +41,7 @@ export const getNotificationsByOrg = async (req, res) => {
   }
 };
 
-//Used by SuperAdmin
+//Used by SuperAdmin New added commit ?
 export const createNotification = async (req, res) => {
   try {
     const { name, description, uniqueName } = req.body;
