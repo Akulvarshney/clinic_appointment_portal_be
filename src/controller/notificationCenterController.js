@@ -68,7 +68,7 @@ export const createNotification = async (req, res) => {
       },
     });
     if (organizations.length > 0) {
-      const notificationsOrg = await prisma.$transaction(
+      const notificationsOrgg = await prisma.$transaction(
         organizations.map((org) =>
           prisma.notifications_organizations.create({
             data: {
@@ -87,7 +87,7 @@ export const createNotification = async (req, res) => {
         message: "Notification created and assigned to all organizations",
         data: {
           notification,
-          notificationsOrg,
+          notificationsOrgg,
         },
       },
       201
