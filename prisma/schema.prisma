@@ -321,12 +321,12 @@ model user_otps {
 
 model notifications {
   id                          String                        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  unique_notification_name    String?                       @db.VarChar(50)
   name                        String                        @db.VarChar(255)
   description                 String?                       @db.VarChar(500)
   is_valid                    Boolean?                      @default(true)
   created_at                  DateTime?                     @default(now()) @db.Timestamptz(6)
   updated_at                  DateTime?                     @default(now()) @db.Timestamptz(6)
+  unique_notification_name    String?                       @db.VarChar(50)
   notifications_organizations notifications_organizations[]
 }
 
