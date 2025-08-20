@@ -38,8 +38,8 @@ pool.on("error", (err) => {
     await prisma.$connect();
     console.log("✅ Prisma connected");
 
-    // await ensureSuperAdminExists();
-    // await syncTabsAndFeatures();
+    await ensureSuperAdminExists();
+    await syncTabsAndFeatures();
 
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);

@@ -9,18 +9,6 @@ export const tabFeatureConfig = [
     ],
   },
   {
-    tab_number: 2,
-    tab_unique_name: "ADMIN_DASHBOARD",
-    tab_name: "Admin Dashboard",
-    tab_path: "/superadmin/dashboard",
-    features: [
-      {
-        feature_unique_name: "VIEW_STATISTICS",
-        feature_name: "View Statistics",
-      },
-    ],
-  },
-  {
     tab_number: 3,
     tab_unique_name: "APPOINTMENT",
     tab_name: "Appointment",
@@ -67,6 +55,10 @@ export const tabFeatureConfig = [
       { feature_unique_name: "ADD_EMPLOYEE", feature_name: "Add Employee" },
       { feature_unique_name: "EDIT_EMPLOYEE", feature_name: "Edit Employee" },
       {
+        feature_unique_name: "CHANGE_EMP_ROLE",
+        feature_name: "Change Employee Role",
+      },
+      {
         feature_unique_name: "DELETE_EMPLOYEE",
         feature_name: "Delete Employee",
       },
@@ -94,7 +86,10 @@ export const tabFeatureConfig = [
       { feature_unique_name: "VIEW_SERVICES", feature_name: "View Services" },
       { feature_unique_name: "ADD_SERVICE", feature_name: "Add Service" },
       { feature_unique_name: "EDIT_SERVICE", feature_name: "Edit Service" },
-      { feature_unique_name: "DELETE_SERVICE", feature_name: "Delete Service" },
+      {
+        feature_unique_name: "DELETE_SERVICE",
+        feature_name: "Disable Service",
+      },
     ],
   },
   {

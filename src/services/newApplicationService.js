@@ -111,12 +111,12 @@ export const NewApplicationActionService = async (uuid, Action, remarks) => {
 };
 
 export async function ApproveApplication(uuid, record) {
-  console.log("Asd");
+  //console.log("Asd");
   const hashedPassword = await hashPassword(
     process.env.DEFAULT_CLIENT_ADMIN_PASSWORD
   );
 
-  console.log("Approving application for:", hashPassword);
+  //console.log("Approving application for:", hashPassword);
 
   const result = await Prisma.$transaction(
     async (tx) => {
@@ -150,6 +150,24 @@ export async function ApproveApplication(uuid, record) {
           shortorgname: record.org_short_name,
         },
       });
+
+      const notifications = await tx.notifications.findMany({
+        where: {
+          is_valid: true,
+        },
+      });
+
+      if (notifications.length > 0) {
+        for (const notify of notifications) {
+          await tx.notifications_organizations.create({
+            data: {
+              notification_id: notify.id,
+              organization_id: newOrg.id,
+              is_active: false,
+            },
+          });
+        }
+      }
 
       const loginId = "admin_" + record.org_short_name;
 
