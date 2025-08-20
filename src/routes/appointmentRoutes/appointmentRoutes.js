@@ -5,7 +5,8 @@ import {
   getActiveAppointmentsController,
 cancelAppointmentController,
 changeAppointmentStatusController,
-reScheduleAppointmentController
+reScheduleAppointmentController,
+updateAppointmentController
 } from "../../controller/appointmentController.js";
 
 const router = Router();
@@ -15,5 +16,9 @@ router.get("/getActiveAppointments", getActiveAppointmentsController);
 router.patch("/changeAppointmentStatus",changeAppointmentStatusController)
 router.post("/cancelAppointment",cancelAppointmentController )
 router.post("/rescheduleAppointments",reScheduleAppointmentController )
+
+router.patch("/updateAppointmentDetails",updateAppointmentController )
+
+
 
 export default router;

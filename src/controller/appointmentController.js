@@ -9,7 +9,7 @@ import { sendResponse, sendErrorResponse } from "../util/response.js";
 //   checkShortNameService,
 // } from "../services/newApplicationService.js";
 import {bookAppointmentService,getActiveAppointmentService,cancelAppointmentsService,
-  changeAppointmentStatusService , reScheduleAppointmentService,
+  changeAppointmentStatusService , reScheduleAppointmentService,updateAppointmentService
 } from "../services/appointmentService.js"
 
 export const bookAppointmentController = async(req , res) =>{
@@ -112,6 +112,23 @@ export const reScheduleAppointmentController = async(req,res)=>{
 catch(error){
   console.log("Error here.   ", error.message);
     res.status(401).json({ message: "Error: while rescheduling Appointment" });
+
+  }
+}
+
+export const updateAppointmentController = async(req,res)=>{
+  const { id,doctorId, employeeId,serviceId,notes } = req.body;
+  try{
+  const response = await updateAppointmentService(id,doctorId, employeeId,serviceId,notes);
+  sendResponse(
+      res,
+      { message: "Appointment Updated Successfully", status: 200 },
+      200
+    );
+}
+catch(error){
+  console.log("Error here.   ", error.message);
+    res.status(401).json({ message: "Error: while updating Appointment" });
 
   }
 }

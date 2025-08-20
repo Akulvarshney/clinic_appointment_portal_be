@@ -34,20 +34,57 @@ export const getKPIDataService = async (orgId) => {
   return kpiData;
 };
 
+export const getBarChartDataService = async (orgId) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const endDate = new Date(today);
+  endDate.setDate(endDate.getDate() + 5);
+  endDate.setHours(23, 59, 59, 999);
+
+  // Fetch appointments in next 5 days
+  const appointments = await Prisma.appointments.findMany({
+    where: {
+      organization_id: orgId,
+      date_time: {
+        gte: today,
+        lte: endDate,
+      },
+    },
+    select: {
+      date_time: true,
+    },
+  });
+
+  // Initialize counts for 5 days
+  const counts = {};
+  for (let i = 0; i < 5; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    const dayName = d.toLocaleDateString("en-US", { weekday: "short" }); // Mon, Tue...
+    counts[dayName] = 0;
+  }
+
+  // Count appointments per day
+  appointments.forEach((appt) => {
+    const d = new Date(appt.date_time);
+    const dayName = d.toLocaleDateString("en-US", { weekday: "short" });
+    if (counts[dayName] !== undefined) {
+      counts[dayName]++;
+    }
+  });
+
+  // Convert to array for bar chart
+  const barData = Object.keys(counts).map((day) => ({
+    name: day,
+    value: counts[day],
+  }));
+
+  return barData;
+};
 
 
 export const getPieChartDataService = async(orgId) =>{
-    //console.log("orgId 123" ,orgId)
-    // const result = await Prisma.$queryRaw`
-    //     SELECT c.category_name as category, COUNT(cl.id) as count
-    //     FROM categories c
-    //     LEFT JOIN clients cl ON c.id = cl.category_id
-    //     WHERE c.status = 'ENABLED'
-    //     AND c.organization_id = ${orgId}
-    //     GROUP BY c.category_name
-    //     ORDER BY c.category_name;
-    //     `;
-
 
 const pieRows = await Prisma.categories.findMany({
   where: {

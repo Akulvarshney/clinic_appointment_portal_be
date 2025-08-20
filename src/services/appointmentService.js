@@ -96,11 +96,13 @@ export const getActiveAppointmentService = async (orgId, date) => {
       },
       doctors: {
         select: {
+          id:true,
           first_name: true,
         },
       },
       employees: {
         select: {
+          id:true,
           first_name: true,
         },
       },
@@ -159,3 +161,26 @@ export const reScheduleAppointmentService = async (
     },
   });
 };
+
+
+ export const updateAppointmentService = async(id,doctorId, employeeId,serviceId,notes) =>{
+    const appt= await Prisma.appointments.findFirst({
+      where:{
+        id,
+      }
+    })
+    if(!appt){
+      throw new Error("Appointment not found this ID");
+    }
+    await Prisma.appointments.update({
+      where:{
+        id,
+      },
+      data:{
+        service_id:serviceId,
+        employee_id:employeeId,
+        doctor_id:doctorId,
+        remarks:notes,
+      }
+    })
+}
