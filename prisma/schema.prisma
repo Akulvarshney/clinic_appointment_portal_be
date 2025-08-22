@@ -30,6 +30,7 @@ model clients {
   organizations    organizations  @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   users            users          @relation(fields: [userid], references: [id], onDelete: NoAction, onUpdate: NoAction)
   categories       categories?    @relation(fields: [category_id], references: [id], onUpdate: NoAction, map: "fk_clients_category")
+  reminder         reminder[]
 }
 
 model organization_applications {
@@ -64,6 +65,7 @@ model organizations {
   doctors                     doctors[]
   employees                   employees[]
   notifications_organizations notifications_organizations[]
+  reminder                    reminder[]
   resources                   resources[]
   roles                       roles[]
   services                    services[]
@@ -343,6 +345,20 @@ model notifications_organizations {
   @@unique([notification_id, organization_id], map: "uq_notification_org")
 }
 
+model reminder {
+  uuid                     String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organization_id          String           @db.Uuid
+  client_id                String           @db.Uuid
+  reminderdate             DateTime         @db.Date
+  createdat_date           DateTime         @default(now()) @db.Timestamp(6)
+  remindercomments         String?
+  remindercompletedremarks String?
+  is_valid                 Boolean          @default(true)
+  status                   reminder_status? @default(unchecked)
+  clients                  clients          @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_reminder_client")
+  organizations            organizations    @relation(fields: [organization_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_reminder_organization")
+}
+
 enum ApplicationStatus {
   PENDING
   APPROVED
@@ -377,4 +393,9 @@ enum categories_status_enum {
 enum services_status_enum {
   ENABLED
   DISABLED
+}
+
+enum reminder_status {
+  checked
+  unchecked
 }

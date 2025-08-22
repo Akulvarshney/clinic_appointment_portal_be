@@ -9,7 +9,7 @@ export const tabFeatureConfig = [
     ],
   },
   {
-    tab_number: 3,
+    tab_number: 2,
     tab_unique_name: "APPOINTMENT",
     tab_name: "Appointment",
     tab_path: "/appointments",
@@ -29,6 +29,30 @@ export const tabFeatureConfig = [
       {
         feature_unique_name: "DELETE_APPOINTMENT",
         feature_name: "Delete Appointment",
+      },
+    ],
+  },
+  {
+    tab_number: 3,
+    tab_unique_name: "REMINDER",
+    tab_name: "Reminders",
+    tab_path: "/reminders",
+    features: [
+      {
+        feature_unique_name: "VIEW_REMINDERS",
+        feature_name: "View Reminders",
+      },
+      {
+        feature_unique_name: "ADD_REMINDERS",
+        feature_name: "Add Appointment",
+      },
+      {
+        feature_unique_name: "UPDATE_REMINDER_ACTION",
+        feature_name: "Reminder Action",
+      },
+      {
+        feature_unique_name: "DELETE_REMINDER",
+        feature_name: "Delete Reminder",
       },
     ],
   },
