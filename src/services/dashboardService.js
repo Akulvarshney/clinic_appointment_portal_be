@@ -1,35 +1,36 @@
 import Prisma from "../prisma.js";
+import { startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
 
 export const getKPIDataService = async (orgId) => {
-    const totalClients = await Prisma.clients.count({
-      where: { organization_id: orgId },
-    });
+  const totalClients = await Prisma.clients.count({
+    where: { organization_id: orgId },
+  });
 
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
 
-    const todayEnd = new Date();
-    todayEnd.setHours(23, 59, 59, 999);
+  const todayEnd = new Date();
+  todayEnd.setHours(23, 59, 59, 999);
 
-    const todayAppointments = await Prisma.appointments.count({
-      where: {
-        organization_id: orgId,
-        date_time: {
-          gte: todayStart,
-          lte: todayEnd,
-        },
+  const todayAppointments = await Prisma.appointments.count({
+    where: {
+      organization_id: orgId,
+      date_time: {
+        gte: todayStart,
+        lte: todayEnd,
       },
-    });
+    },
+  });
 
-    const totalAppointments = await Prisma.appointments.count({
-      where: { organization_id: orgId },
-    });
+  const totalAppointments = await Prisma.appointments.count({
+    where: { organization_id: orgId },
+  });
 
-    const kpiData = [
-      { title: "Total Clients", amount: totalClients },
-      { title: "Today Appointments", amount: todayAppointments },
-      { title: "Total Appointments", amount: totalAppointments },
-    ];
+  const kpiData = [
+    { title: "Total Clients", amount: totalClients },
+    { title: "Today Appointments", amount: todayAppointments },
+    { title: "Total Appointments", amount: totalAppointments },
+  ];
 
   return kpiData;
 };
@@ -83,31 +84,83 @@ export const getBarChartDataService = async (orgId) => {
   return barData;
 };
 
+export const getPieChartDataServiceold = async (orgId) => {
+  const pieRows = await Prisma.categories.findMany({
+    where: {
+      organization_id: orgId,
+      status: "ENABLED",
+      is_valid: true,
+    },
+    select: {
+      category_name: true,
+      categories_color: true,
+      _count: { select: { clients: true } },
+    },
+    orderBy: { category_name: "asc" },
+  });
+  console.log("pieRows>>> ", pieRows);
 
-export const getPieChartDataService = async(orgId) =>{
+  // shape for Recharts
+  const pieData = pieRows.map((r) => ({
+    name: r.category_name,
+    value: r._count.clients,
+    color: r.categories_color,
+  }));
 
-const pieRows = await Prisma.categories.findMany({
-  where: {
-    organization_id: orgId,       // UUID string
-    status: 'ENABLED',
-    is_valid:true,
-  },
-  select: {
-    category_name: true,
-    categories_color:true,
-    _count: { select: { clients: true } }, 
-  },
-  orderBy: { category_name: 'asc' },
-});
-console.log("pieRows>>> " , pieRows)
+  console.log(pieData);
+  return pieData;
+};
 
-// shape for Recharts
-const pieData = pieRows.map(r => ({
-  name: r.category_name,
-  value: r._count.clients, 
-  color:r.categories_color
-}));
+export const getPieChartDataService = async (orgId, month, year) => {
+  let dateFilter = {};
 
-    console.log(pieData);
-    return pieData;
-}
+  if (month && year) {
+    // When month/year are provided
+    const start = startOfMonth(new Date(year, month - 1));
+    const end = endOfMonth(new Date(year, month - 1));
+    dateFilter = {
+      created_at: {
+        gte: start,
+        lte: end,
+      },
+    };
+  } else if (year) {
+    const start = startOfYear(new Date(year, 0));
+    const end = endOfYear(new Date(year, 0));
+    dateFilter = {
+      created_at: {
+        gte: start,
+        lte: end,
+      },
+    };
+  }
+  console.log(dateFilter);
+
+  const pieRows = await Prisma.categories.findMany({
+    where: {
+      organization_id: orgId,
+      status: "ENABLED",
+      is_valid: true,
+    },
+    select: {
+      category_name: true,
+      categories_color: true,
+      _count: {
+        select: {
+          clients: {
+            where: dateFilter,
+          },
+        },
+      },
+    },
+    orderBy: { category_name: "asc" },
+  });
+
+  const pieData = pieRows.map((r) => ({
+    name: r.category_name,
+    value: r._count.clients,
+    color: r.categories_color,
+  }));
+
+  return pieData;
+};
