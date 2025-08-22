@@ -7,6 +7,7 @@ export const getKPIDataService = async (orgId) => {
   });
 
   const todayStart = new Date();
+  console.log("sync");
   todayStart.setHours(0, 0, 0, 0);
 
   const todayEnd = new Date();
