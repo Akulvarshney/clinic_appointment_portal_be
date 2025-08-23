@@ -2,7 +2,7 @@ import Prisma from "../prisma.js";
 import { welcomeClientTemplate } from "../util/emailTemplates.js";
 import { hashPassword } from "../util/password.js";
 import { sendEmail } from "../util/sendMail.js";
-import {checkNotificationActive} from "../util/checkNotificationActive.js"
+import { checkNotificationActive } from "../util/checkNotificationActive.js";
 
 async function generateClientPortalId() {
   return await Prisma.$transaction(async (tx) => {
@@ -101,65 +101,108 @@ export const registerClientService = async (
     });
 
     if (client) {
+      const valid_notification = await checkNotificationActive(
+        organization_id,
+        "SEND_CLIENT_REG_EMAIL"
+      );
 
-      const valid_notification= await checkNotificationActive(organization_id,"SEND_CLIENT_REG_EMAIL")
-      
-        if(valid_notification){
-            console.log("Sending Email")
-          const { subject, text, html } = welcomeClientTemplate(
-              Firstname,
-              orgName.name,
-              portal_id,
-              process.env.DEFAULT_CLIENT_PASSWORD
-            );
-          await sendEmail({
-            to: email,
-            subject,
-            text,
-            html,
-          });
-        }
-        else{
-          console.log("not sending email")
-        }
+      if (valid_notification) {
+        console.log("Sending Email");
+        const { subject, text, html } = welcomeClientTemplate(
+          Firstname,
+          orgName.name,
+          portal_id,
+          process.env.DEFAULT_CLIENT_PASSWORD
+        );
+        await sendEmail({
+          to: email,
+          subject,
+          text,
+          html,
+        });
+      } else {
+        console.log("not sending email");
+      }
 
       return { message: "Registration Successful", status: 200 };
     } else return { message: "Error in Registration", status: 400 };
   });
 };
 
-export const clientListingService = async (search, page, limit, orgId) => {
-  console.log(orgId);
-  console.log(search);
+// controller
+export const clientListingConroller = async (req, res) => {
+  const { search = "", page = 1, limit = 10, orgId, categoryId } = req.query;
+
+  try {
+    const response = await clientListingService({
+      search,
+      page,
+      limit,
+      orgId,
+      categoryId,
+    });
+    res.json(response);
+  } catch (error) {
+    console.error("Error in client listing:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
+// service
+export const clientListingService = async ({
+  search,
+  page,
+  limit,
+  orgId,
+  categoryId,
+}) => {
+  console.log("Org ID:", orgId);
+  console.log("Search:", search);
+  console.log("Page:", page);
+  console.log("Category ID:", categoryId);
+
+  // Ensure search is always a string
+  const searchTerm = typeof search === "string" ? search.trim() : "";
+
+  // Ensure pagination is numeric
+  const pageNum = Number(page) || 1;
+  const limitNum = Number(limit) || 10;
+
+  // Build where clause safely
   const whereClause = {
-    OR: [
-      { first_name: { contains: search, mode: "insensitive" } },
-      { phone: { contains: search } },
+    ...(orgId ? { organization_id: orgId } : {}), // only include if defined
+    AND: [
+      searchTerm
+        ? {
+            OR: [
+              { first_name: { contains: searchTerm, mode: "insensitive" } },
+              { last_name: { contains: searchTerm, mode: "insensitive" } },
+              { phone: { contains: searchTerm } },
+              { email: { contains: searchTerm, mode: "insensitive" } },
+            ],
+          }
+        : {},
+      categoryId ? { category_id: categoryId } : {},
     ],
-    organization_id: orgId,
   };
 
   const clients = await Prisma.clients.findMany({
-    // where: search ? whereClause : undefined,
     where: whereClause,
-    skip: (page - 1) * limit,
-    take: parseInt(limit),
+    skip: (pageNum - 1) * limitNum,
+    take: limitNum,
     orderBy: { first_name: "asc" },
-    include: {
-      categories: true,
-    },
+    include: { categories: true },
   });
-  console.log(clients);
 
   const totalCount = await Prisma.clients.count({
-    where: search ? whereClause : undefined,
+    where: whereClause,
   });
 
   return {
     data: clients,
     total: totalCount,
-    currentPage: parseInt(page),
-    totalPages: Math.ceil(totalCount / limit),
+    currentPage: pageNum,
+    totalPages: Math.ceil(totalCount / limitNum),
   };
 };
 

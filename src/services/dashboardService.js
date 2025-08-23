@@ -1,56 +1,74 @@
+import { DateTime } from "luxon";
 import Prisma from "../prisma.js";
 import { startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
 
-export const getKPIDataService = async (orgId) => {
+export const getKPIDataService = async (orgId, timezone = "Asia/Kolkata") => {
   const totalClients = await Prisma.clients.count({
     where: { organization_id: orgId },
   });
 
-  const todayStart = new Date();
-  console.log("sync");
-  todayStart.setHours(0, 0, 0, 0);
+  const now = DateTime.now().setZone(timezone);
 
-  const todayEnd = new Date();
-  todayEnd.setHours(23, 59, 59, 999);
+  const todayStart = now.startOf("day");
+
+  const todayEnd = now.endOf("day");
+
+  const todayStartUTC = todayStart.toUTC().toJSDate();
+  const todayEndUTC = todayEnd.toUTC().toJSDate();
+
+  console.log("Timezone:", timezone);
+  console.log("Today start (local):", todayStart.toISO());
+  console.log("Today end (local):", todayEnd.toISO());
+  console.log("Today start (UTC for DB):", todayStartUTC.toISOString());
+  console.log("Today end (UTC for DB):", todayEndUTC.toISOString());
 
   const todayAppointments = await Prisma.appointments.count({
     where: {
       organization_id: orgId,
       date_time: {
-        gte: todayStart,
-        lte: todayEnd,
+        gte: todayStartUTC,
+        lte: todayEndUTC,
       },
+      is_cancelled: false,
+      is_valid: true,
     },
   });
 
-  const totalAppointments = await Prisma.appointments.count({
-    where: { organization_id: orgId },
+  const todaysReminder = await Prisma.reminder.count({
+    where: {
+      organization_id: orgId,
+      reminderdate: {
+        gte: todayStartUTC,
+        lte: todayEndUTC,
+      },
+      is_valid: true,
+    },
   });
 
   const kpiData = [
     { title: "Total Clients", amount: totalClients },
     { title: "Today Appointments", amount: todayAppointments },
-    { title: "Total Appointments", amount: totalAppointments },
+    { title: "Today's Reminders", amount: todaysReminder },
+    // { title: "Total Appointments", amount: totalAppointments },
   ];
 
   return kpiData;
 };
 
 export const getBarChartDataService = async (orgId) => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // Get start of today
+  const today = DateTime.now().startOf("day");
 
-  const endDate = new Date(today);
-  endDate.setDate(endDate.getDate() + 5);
-  endDate.setHours(23, 59, 59, 999);
+  // Get end of 5th day (today + 4 days)
+  const endDate = today.plus({ days: 6 }).endOf("day");
 
   // Fetch appointments in next 5 days
   const appointments = await Prisma.appointments.findMany({
     where: {
       organization_id: orgId,
       date_time: {
-        gte: today,
-        lte: endDate,
+        gte: today.toJSDate(),
+        lte: endDate.toJSDate(),
       },
     },
     select: {
@@ -60,17 +78,16 @@ export const getBarChartDataService = async (orgId) => {
 
   // Initialize counts for 5 days
   const counts = {};
-  for (let i = 0; i < 5; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() + i);
-    const dayName = d.toLocaleDateString("en-US", { weekday: "short" }); // Mon, Tue...
+  for (let i = 0; i < 7; i++) {
+    const currentDay = today.plus({ days: i });
+    const dayName = currentDay.toFormat("ccc"); // Mon, Tue, Wed...
     counts[dayName] = 0;
   }
 
   // Count appointments per day
   appointments.forEach((appt) => {
-    const d = new Date(appt.date_time);
-    const dayName = d.toLocaleDateString("en-US", { weekday: "short" });
+    const appointmentDate = DateTime.fromJSDate(appt.date_time);
+    const dayName = appointmentDate.toFormat("ccc");
     if (counts[dayName] !== undefined) {
       counts[dayName]++;
     }

@@ -1,4 +1,6 @@
+import { DateTime } from "luxon";
 import Prisma from "../prisma.js";
+
 export const saveReminderService = async (
   orgId,
   clientId,
@@ -25,7 +27,7 @@ export const getReminderService = async (orgId, date) => {
   const response = await Prisma.reminder.findMany({
     where: {
       organization_id: orgId,
-      reminderdate: date,
+      reminderdate: new Date(date),
     },
     include: {
       clients: {
@@ -35,9 +37,10 @@ export const getReminderService = async (orgId, date) => {
       },
     },
   });
+
   if (!response) {
     throw new Error("Error getting Reminders");
   }
-  console.log("response>>>> ", response);
+
   return response;
 };
