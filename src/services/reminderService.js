@@ -11,7 +11,7 @@ export const saveReminderService = async (
     data: {
       organization_id: orgId,
       client_id: clientId,
-      reminderdate: reminderDate,
+      reminderdate: new Date(reminderDate).toISOString(),
       remindercomments: comments,
     },
   });
