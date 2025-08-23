@@ -23,6 +23,7 @@ export const saveReminderService = async (
 };
 export const updateReminderService = async (id, status, remarks) => {};
 
+//ReminderService
 export const getReminderService = async (orgId, date) => {
   const response = await Prisma.reminder.findMany({
     where: {
