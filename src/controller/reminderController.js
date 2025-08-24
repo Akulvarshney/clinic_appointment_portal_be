@@ -23,13 +23,9 @@ export const getRemindersController = async (req, res) => {
 export const updateRemindersController = async (req, res) => {
   try {
     const { id } = req.query;
-    const { status, remarks } = req.body;
-    const response = await updateReminderService(id, status, remarks);
-    sendResponse(
-      res,
-      { message: response.message, status: response.status },
-      200
-    );
+    const { remarks } = req.body;
+    const response = await updateReminderService(id, remarks);
+    sendResponse(res, { message: "Checked successfully" }, 200);
   } catch (error) {
     console.log("Error herer.   ", error.message);
     res.status(500).json({ message: error.message });

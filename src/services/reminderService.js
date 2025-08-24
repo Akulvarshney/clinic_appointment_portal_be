@@ -21,7 +21,17 @@ export const saveReminderService = async (
 
   return reminder;
 };
-export const updateReminderService = async (id, status, remarks) => {};
+export const updateReminderService = async (id, remarks) => {
+  await Prisma.reminder.update({
+    where: {
+      uuid: id,
+    },
+    data: {
+      status: "checked",
+      remindercompletedremarks: remarks,
+    },
+  });
+};
 
 //ReminderService
 export const getReminderService = async (orgId, date) => {

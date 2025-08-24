@@ -17,28 +17,49 @@ export const createResourceService = async (resourceName, orgId) => {
   });
 };
 
-export const getResources = async (orgId,status) => {
+export const getResources = async (orgId, status) => {
   const resources = await Prisma.resources.findMany({
     where: {
       organization_id: orgId,
       is_valid: true,
-      status:status
+      status: status,
     },
   });
   return resources;
 };
 
-export const updateResourceService = async (id, status) => {
-  if (!["ENABLED", "DISABLED"].includes(status)) {
-    return { message: "Error", status: 400 };
+export const updateResourceService = async (id, payload) => {
+  const dataToUpdate = {};
+
+  if (payload.status) {
+    if (!["ENABLED", "DISABLED"].includes(payload.status)) {
+      return { message: "Invalid status", status: 400 };
+    }
+    dataToUpdate.status = payload.status;
   }
+
+  if (payload.resourceName) {
+    dataToUpdate.name = payload.resourceName;
+  }
+
+  if (payload.order !== undefined) {
+    dataToUpdate.resource_order = payload.order;
+  }
+
+  // if (payload.orgId) {
+  //   dataToUpdate.orgId = payload.orgId;
+  // }
+
+  if (Object.keys(dataToUpdate).length === 0) {
+    return { message: "No fields to update", status: 400 };
+  }
+
   const updated = await Prisma.resources.update({
     where: { id },
-    data: {
-      status: status,
-    },
+    data: dataToUpdate,
   });
-  return { message: "Resource Updates", status: 200 };
+
+  return { message: "Resource updated", status: 200, data: updated };
 };
 
 async function generateResourcePortId() {

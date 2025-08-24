@@ -23,8 +23,8 @@ export const createResourceController = async (req, res) => {
 
 export const getResourcesController = async (req, res) => {
   try {
-    const { orgId,status } = req.query;
-    const response = await getResources(orgId,status);
+    const { orgId, status } = req.query;
+    const response = await getResources(orgId, status);
     sendResponse(
       res,
       { message: "Getting Resources Successfully", response, status: 200 },
@@ -38,9 +38,15 @@ export const getResourcesController = async (req, res) => {
 
 export const updateResourceController = async (req, res) => {
   try {
-    const { id } = req.query;
-    const { status } = req.body;
-    const response = await updateResourceService(id, status);
+    //const { id } = req.query;
+    const { id } = req.body;
+
+    if (!id) {
+      return res.status(400).json({ message: "Resource ID is required" });
+    }
+    //const { status, id } = req.body;
+    //console.log(status);
+    const response = await updateResourceService(id, req.body);
     sendResponse(
       res,
       { message: response.message, status: response.status },
