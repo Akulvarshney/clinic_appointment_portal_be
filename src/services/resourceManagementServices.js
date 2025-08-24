@@ -2,18 +2,60 @@ import Prisma from "../prisma.js";
 
 export const createResourceService = async (resourceName, orgId) => {
   return await Prisma.$transaction(async (tx) => {
-    const portal = await generateResourcePortId();
-    console.log("portal_id >>> ", portal);
-    const resource = await Prisma.resources.create({
-      data: {
-        portal_id: portal,
-        name: resourceName,
-        organization_id: orgId,
+    const latest = await tx.resources.findFirst({
+      where: {
+        portal_id: {
+          startsWith: "RES_",
+        },
+      },
+      orderBy: {
+        portal_id: "desc",
+      },
+      select: {
+        portal_id: true,
       },
     });
-    if (resource)
-      return { message: "Resource created Successfully", status: 200 };
-    else return { message: "Error in Creating Resource", status: 400 };
+
+    let nextNumber = 1;
+    if (latest?.portal_id) {
+      const numPart = parseInt(latest.portal_id.split("_")[1]);
+      if (!isNaN(numPart)) {
+        nextNumber = numPart + 1;
+      }
+    }
+
+    const portalId = `RES_${String(nextNumber).padStart(5, "0")}`;
+
+    const latestOrder = await tx.resources.findFirst({
+      where: {
+        organization_id: orgId,
+      },
+      orderBy: {
+        resource_order: "desc",
+      },
+      select: {
+        resource_order: true,
+      },
+    });
+
+    const resourceOrder = latestOrder?.resource_order
+      ? latestOrder.resource_order + 1
+      : 1;
+
+    const resource = await tx.resources.create({
+      data: {
+        portal_id: portalId,
+        name: resourceName,
+        organization_id: orgId,
+        resource_order: resourceOrder,
+      },
+    });
+
+    if (resource) {
+      return { message: "Resource created successfully", status: 200 };
+    } else {
+      return { message: "Error in creating resource", status: 400 };
+    }
   });
 };
 
@@ -29,6 +71,11 @@ export const getResources = async (orgId, status) => {
 };
 
 export const updateResourceService = async (id, payload) => {
+  const resource = await Prisma.resources.findUnique({ where: { id } });
+  if (!resource) {
+    return { message: "Resource not found", status: 404 };
+  }
+
   const dataToUpdate = {};
 
   if (payload.status) {
@@ -43,12 +90,43 @@ export const updateResourceService = async (id, payload) => {
   }
 
   if (payload.order !== undefined) {
-    dataToUpdate.resource_order = payload.order;
-  }
+    const currentOrder = resource.resource_order;
+    const newOrder = payload.order;
 
-  // if (payload.orgId) {
-  //   dataToUpdate.orgId = payload.orgId;
-  // }
+    if (newOrder < currentOrder) {
+      // Moving resource UP (e.g. 9 → 3)
+      await Prisma.resources.updateMany({
+        where: {
+          resource_order: {
+            gte: newOrder,
+            lt: currentOrder,
+          },
+        },
+        data: {
+          resource_order: {
+            increment: 1,
+          },
+        },
+      });
+    } else if (newOrder > currentOrder) {
+      // Moving resource DOWN (e.g. 3 → 9)
+      await Prisma.resources.updateMany({
+        where: {
+          resource_order: {
+            lte: newOrder,
+            gt: currentOrder,
+          },
+        },
+        data: {
+          resource_order: {
+            decrement: 1,
+          },
+        },
+      });
+    }
+
+    dataToUpdate.resource_order = newOrder;
+  }
 
   if (Object.keys(dataToUpdate).length === 0) {
     return { message: "No fields to update", status: 400 };
@@ -61,33 +139,3 @@ export const updateResourceService = async (id, payload) => {
 
   return { message: "Resource updated", status: 200, data: updated };
 };
-
-async function generateResourcePortId() {
-  return await Prisma.$transaction(async (tx) => {
-    const latest = await tx.resources.findFirst({
-      where: {
-        portal_id: {
-          startsWith: "RES_",
-        },
-      },
-      orderBy: {
-        portal_id: "desc",
-      },
-      select: {
-        portal_id: true,
-      },
-    });
-
-    // Step 2: Calculate new portalId
-    let nextNumber = 1;
-    if (latest?.portal_id) {
-      const numPart = parseInt(latest.portal_id.split("_")[1]);
-      if (!isNaN(numPart)) {
-        nextNumber = numPart + 1;
-      }
-    }
-
-    const newPortalId = `RES_${String(nextNumber).padStart(5, "0")}`;
-    return newPortalId;
-  });
-}
