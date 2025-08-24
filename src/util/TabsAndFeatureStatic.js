@@ -59,7 +59,7 @@ export const tabFeatureConfig = [
   {
     tab_number: 4,
     tab_unique_name: "CLIENT_LISTING",
-    tab_name: "Client Listing",
+    tab_name: "Clients",
     tab_path: "/clients",
     features: [
       { feature_unique_name: "VIEW_CLIENTS", feature_name: "View Clients" },
@@ -72,7 +72,7 @@ export const tabFeatureConfig = [
   {
     tab_number: 5,
     tab_unique_name: "EMPLOYEE_MANAGEMENT",
-    tab_name: "Employee Management",
+    tab_name: "Employee",
     tab_path: "/employeeManagement",
     features: [
       { feature_unique_name: "VIEW_EMPLOYEES", feature_name: "View Employees" },
@@ -91,7 +91,7 @@ export const tabFeatureConfig = [
   {
     tab_number: 6,
     tab_unique_name: "DOCTOR_MANAGEMENT",
-    tab_name: "Doctor Management",
+    tab_name: "Doctors",
     tab_path: "/doctorManagement",
     features: [
       { feature_unique_name: "VIEW_DOCTORS", feature_name: "View Doctors" },
@@ -104,7 +104,7 @@ export const tabFeatureConfig = [
   {
     tab_number: 7,
     tab_unique_name: "SERVICE_MANAGEMENT",
-    tab_name: "Service Management",
+    tab_name: "Services",
     tab_path: "/servicesManagement",
     features: [
       { feature_unique_name: "VIEW_SERVICES", feature_name: "View Services" },
@@ -119,7 +119,7 @@ export const tabFeatureConfig = [
   {
     tab_number: 8,
     tab_unique_name: "RESOURCE_MANAGEMENT",
-    tab_name: "Resource Management",
+    tab_name: "Resources",
     tab_path: "/resourceManagement",
     features: [
       { feature_unique_name: "VIEW_RESOURCES", feature_name: "View Resources" },
@@ -143,7 +143,6 @@ export const tabFeatureConfig = [
         feature_unique_name: "SYSTEM_PREFERENCES",
         feature_name: "System Preferences",
       },
-      { feature_unique_name: "AUDIT_LOGS", feature_name: "Audit Logs" },
       {
         feature_unique_name: "ROLE_MANAGEMENT",
         feature_name: "Role Management",
@@ -155,10 +154,6 @@ export const tabFeatureConfig = [
       {
         feature_unique_name: "NOTIFICATION_CENTER",
         feature_name: "Notification Center",
-      },
-      {
-        feature_unique_name: "API_INTEGRATIONS",
-        feature_name: "API Integrations",
       },
     ],
   },
