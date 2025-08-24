@@ -9,38 +9,38 @@ export const getKPIDataService = async (orgId, timezone = "Asia/Kolkata") => {
 
   const now = DateTime.now().setZone(timezone);
 
-  const todayStart = now.startOf("day");
-
-  const todayEnd = now.endOf("day");
-
-  const todayStartUTC = todayStart.toUTC().toJSDate();
-  const todayEndUTC = todayEnd.toUTC().toJSDate();
+  const todayStart = now.startOf("day").toUTC().toJSDate();
+  const todayEnd = now.endOf("day").toUTC().toJSDate();
 
   console.log("Timezone:", timezone);
-  console.log("Today start (local):", todayStart.toISO());
-  console.log("Today end (local):", todayEnd.toISO());
-  console.log("Today start (UTC for DB):", todayStartUTC.toISOString());
-  console.log("Today end (UTC for DB):", todayEndUTC.toISOString());
+  console.log("Appointments start (UTC):", todayStart.toISOString());
+  console.log("Appointments end (UTC):", todayEnd.toISOString());
 
   const todayAppointments = await Prisma.appointments.count({
     where: {
       organization_id: orgId,
       date_time: {
-        gte: todayStartUTC,
-        lte: todayEndUTC,
+        gte: todayStart,
+        lte: todayEnd,
       },
       is_cancelled: false,
       is_valid: true,
+      resources: {
+        status: {
+          not: "DISABLED",
+        },
+      },
     },
   });
+
+  const todayDateStr = now.toFormat("yyyy-LL-dd");
+
+  console.log("Reminders date (local):", todayDateStr);
 
   const todaysReminder = await Prisma.reminder.count({
     where: {
       organization_id: orgId,
-      reminderdate: {
-        gte: todayStartUTC,
-        lte: todayEndUTC,
-      },
+      reminderdate: new Date(todayDateStr),
       is_valid: true,
     },
   });
@@ -49,20 +49,16 @@ export const getKPIDataService = async (orgId, timezone = "Asia/Kolkata") => {
     { title: "Total Clients", amount: totalClients },
     { title: "Today Appointments", amount: todayAppointments },
     { title: "Today's Reminders", amount: todaysReminder },
-    // { title: "Total Appointments", amount: totalAppointments },
   ];
 
   return kpiData;
 };
 
 export const getBarChartDataService = async (orgId) => {
-  // Get start of today
   const today = DateTime.now().startOf("day");
 
-  // Get end of 5th day (today + 4 days)
   const endDate = today.plus({ days: 6 }).endOf("day");
 
-  // Fetch appointments in next 5 days
   const appointments = await Prisma.appointments.findMany({
     where: {
       organization_id: orgId,
@@ -76,15 +72,13 @@ export const getBarChartDataService = async (orgId) => {
     },
   });
 
-  // Initialize counts for 5 days
   const counts = {};
   for (let i = 0; i < 7; i++) {
     const currentDay = today.plus({ days: i });
-    const dayName = currentDay.toFormat("ccc"); // Mon, Tue, Wed...
+    const dayName = currentDay.toFormat("ccc");
     counts[dayName] = 0;
   }
 
-  // Count appointments per day
   appointments.forEach((appt) => {
     const appointmentDate = DateTime.fromJSDate(appt.date_time);
     const dayName = appointmentDate.toFormat("ccc");
@@ -93,7 +87,6 @@ export const getBarChartDataService = async (orgId) => {
     }
   });
 
-  // Convert to array for bar chart
   const barData = Object.keys(counts).map((day) => ({
     name: day,
     value: counts[day],
@@ -118,7 +111,6 @@ export const getPieChartDataServiceold = async (orgId) => {
   });
   console.log("pieRows>>> ", pieRows);
 
-  // shape for Recharts
   const pieData = pieRows.map((r) => ({
     name: r.category_name,
     value: r._count.clients,
@@ -133,7 +125,6 @@ export const getPieChartDataService = async (orgId, month, year) => {
   let dateFilter = {};
 
   if (month && year) {
-    // When month/year are provided
     const start = startOfMonth(new Date(year, month - 1));
     const end = endOfMonth(new Date(year, month - 1));
     dateFilter = {
