@@ -85,7 +85,7 @@ export const registerClientService = async (
   return await Prisma.$transaction(async (tx) => {
     const newUser = await tx.users.create({
       data: {
-        email: email,
+        email: email || "",
         password_hash: await hashPassword(process.env.DEFAULT_CLIENT_PASSWORD),
         full_name: Firstname + " " + Secondname,
         phone: mobile,
