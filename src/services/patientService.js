@@ -115,7 +115,7 @@ export const registerClientService = async (
         phone: mobile,
         userid: newUser.id,
         address,
-        category_id: category,
+        //category_id: category,
         date_of_birth: dob ? new Date(dob) : null,
         organization_id,
         gender,
@@ -124,6 +124,15 @@ export const registerClientService = async (
         portalid: portal_id,
       },
     });
+    console.log("client new reg ", client);
+    const client_ord_cat = await tx.client_organization_category.create({
+      data: {
+        organization_id,
+        client_id: client.id,
+        category_id: category,
+      },
+    });
+    console.log("client new reg2 ", client_ord_cat);
     await tx.user_roles.create({
       data: {
         role_id: roleId,
@@ -203,6 +212,7 @@ export const clientListingService = async ({
   const whereClause = {
     ...(orgId ? { organization_id: orgId } : {}), // only include if defined
     AND: [
+      //{ is_valid: true },
       searchTerm
         ? {
             OR: [
@@ -213,7 +223,14 @@ export const clientListingService = async ({
             ],
           }
         : {},
-      categoryId ? { category_id: categoryId } : {},
+      //categoryId ? { category_id: categoryId } : {},
+      categoryId
+        ? {
+            client_organization_category: {
+              some: { category_id: categoryId },
+            },
+          }
+        : {},
     ],
   };
 
@@ -222,7 +239,14 @@ export const clientListingService = async ({
     skip: (pageNum - 1) * limitNum,
     take: limitNum,
     orderBy: { first_name: "asc" },
-    include: { categories: true },
+    //include: { categories: true },
+    include: {
+      client_organization_category: {
+        include: {
+          categories: true,
+        },
+      },
+    },
   });
 
   const totalCount = await Prisma.clients.count({
@@ -254,7 +278,12 @@ export const clientSearchService = async (search, limit, orgId) => {
     orderBy: { first_name: "asc" },
     take: limit ? parseInt(limit, 10) : 5,
     include: {
-      categories: true,
+      //categories: true,
+      client_organization_category: {
+        include: {
+          categories: true,
+        },
+      },
     },
   });
   console.log(clients);

@@ -156,8 +156,13 @@ export const getPieChartDataService = async (orgId, month, year) => {
       categories_color: true,
       _count: {
         select: {
-          clients: {
-            where: dateFilter,
+          client_organization_category: {
+            where: {
+              clients: {
+                // apply your dateFilter on client fields
+                ...dateFilter,
+              },
+            },
           },
         },
       },
@@ -167,7 +172,7 @@ export const getPieChartDataService = async (orgId, month, year) => {
 
   const pieData = pieRows.map((r) => ({
     name: r.category_name,
-    value: r._count.clients,
+    value: r._count.client_organization_category,
     color: r.categories_color,
   }));
 

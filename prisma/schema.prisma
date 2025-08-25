@@ -9,28 +9,27 @@ datasource db {
 }
 
 model clients {
-  id               String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  portalid         String         @unique @db.VarChar(20)
-  userid           String         @unique @db.Uuid
-  organization_id  String         @db.Uuid
-  first_name       String?        @db.VarChar(255)
-  last_name        String?        @db.VarChar(255)
-  email            String?        @db.VarChar(255)
-  phone            String?        @db.VarChar(20)
-  address          String?        @db.VarChar(250)
-  date_of_birth    DateTime?      @db.Date
-  is_valid         Boolean?       @default(true)
-  gender           gender?
-  occupation       String?        @db.VarChar(100)
-  emergencycontact String?        @db.VarChar(15)
-  created_at       DateTime?      @default(now()) @db.Timestamptz(6)
-  updated_at       DateTime?      @default(now()) @db.Timestamptz(6)
-  category_id      String?        @db.Uuid
-  appointments     appointments[]
-  organizations    organizations  @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  users            users          @relation(fields: [userid], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  categories       categories?    @relation(fields: [category_id], references: [id], onUpdate: NoAction, map: "fk_clients_category")
-  reminder         reminder[]
+  id                           String                         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  portalid                     String                         @unique @db.VarChar(20)
+  userid                       String                         @unique @db.Uuid
+  organization_id              String                         @db.Uuid
+  first_name                   String?                        @db.VarChar(255)
+  last_name                    String?                        @db.VarChar(255)
+  email                        String?                        @db.VarChar(255)
+  phone                        String?                        @db.VarChar(20)
+  address                      String?                        @db.VarChar(250)
+  date_of_birth                DateTime?                      @db.Date
+  is_valid                     Boolean?                       @default(true)
+  gender                       gender?
+  occupation                   String?                        @db.VarChar(100)
+  emergencycontact             String?                        @db.VarChar(15)
+  created_at                   DateTime?                      @default(now()) @db.Timestamptz(6)
+  updated_at                   DateTime?                      @default(now()) @db.Timestamptz(6)
+  appointments                 appointments[]
+  client_organization_category client_organization_category[]
+  organizations                organizations                  @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users                        users                          @relation(fields: [userid], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reminder                     reminder[]
 }
 
 model organization_applications {
@@ -50,26 +49,27 @@ model organization_applications {
 }
 
 model organizations {
-  id                          String                        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  name                        String                        @db.VarChar(255)
-  created_at                  DateTime?                     @default(now()) @db.Timestamptz(6)
-  updated_at                  DateTime?                     @default(now()) @db.Timestamptz(6)
-  is_valid                    Boolean                       @default(true)
-  is_complete                 Boolean?                      @default(false)
-  gstnumber                   String?                       @db.VarChar(100)
-  address                     String?                       @db.VarChar(100)
-  shortorgname                String?                       @db.VarChar(20)
-  appointments                appointments[]
-  categories                  categories[]
-  clients                     clients[]
-  doctors                     doctors[]
-  employees                   employees[]
-  notifications_organizations notifications_organizations[]
-  reminder                    reminder[]
-  resources                   resources[]
-  roles                       roles[]
-  services                    services[]
-  user_organizations          user_organizations[]
+  id                           String                         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name                         String                         @db.VarChar(255)
+  created_at                   DateTime?                      @default(now()) @db.Timestamptz(6)
+  updated_at                   DateTime?                      @default(now()) @db.Timestamptz(6)
+  is_valid                     Boolean                        @default(true)
+  is_complete                  Boolean?                       @default(false)
+  gstnumber                    String?                        @db.VarChar(100)
+  address                      String?                        @db.VarChar(100)
+  shortorgname                 String?                        @db.VarChar(20)
+  appointments                 appointments[]
+  categories                   categories[]
+  client_organization_category client_organization_category[]
+  clients                      clients[]
+  doctors                      doctors[]
+  employees                    employees[]
+  notifications_organizations  notifications_organizations[]
+  reminder                     reminder[]
+  resources                    resources[]
+  roles                        roles[]
+  services                     services[]
+  user_organizations           user_organizations[]
 }
 
 model roles {
@@ -295,16 +295,16 @@ model appointments {
 }
 
 model categories {
-  id               String                 @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  category_name    String                 @db.VarChar(255)
-  is_valid         Boolean?               @default(true)
-  organization_id  String                 @db.Uuid
-  created_at       DateTime?              @default(now()) @db.Timestamptz(6)
-  updated_at       DateTime?              @default(now()) @db.Timestamptz(6)
-  status           categories_status_enum @default(ENABLED)
-  categories_color String?                @db.VarChar
-  organizations    organizations          @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_categories_organization")
-  clients          clients[]
+  id                           String                         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  category_name                String                         @db.VarChar(255)
+  is_valid                     Boolean?                       @default(true)
+  organization_id              String                         @db.Uuid
+  created_at                   DateTime?                      @default(now()) @db.Timestamptz(6)
+  updated_at                   DateTime?                      @default(now()) @db.Timestamptz(6)
+  status                       categories_status_enum         @default(ENABLED)
+  categories_color             String?                        @db.VarChar
+  organizations                organizations                  @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_categories_organization")
+  client_organization_category client_organization_category[]
 
   @@unique([organization_id, category_name], map: "uq_org_category")
 }
@@ -360,6 +360,21 @@ model reminder {
   organizations            organizations    @relation(fields: [organization_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_reminder_organization")
 }
 
+model client_organization_category {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  client_id       String        @db.Uuid
+  organization_id String        @db.Uuid
+  category_id     String        @db.Uuid
+  booked_status   booked_status @default(UNBOOKED)
+  created_at      DateTime?     @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime?     @default(now()) @db.Timestamptz(6)
+  categories      categories    @relation(fields: [category_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_category")
+  clients         clients       @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_client")
+  organizations   organizations @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_organization")
+
+  @@unique([client_id, organization_id, category_id], map: "uq_client_org_cat")
+}
+
 enum ApplicationStatus {
   PENDING
   APPROVED
@@ -399,4 +414,9 @@ enum services_status_enum {
 enum reminder_status {
   checked
   unchecked
+}
+
+enum booked_status {
+  BOOKED
+  UNBOOKED
 }

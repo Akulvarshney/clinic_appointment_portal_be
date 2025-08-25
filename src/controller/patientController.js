@@ -91,8 +91,13 @@ export const clientDetailsController = async (req, res) => {
       include: {
         organizations: true, // fetch organization details
         users: true, // fetch user details
-        categories: true, // fetch category details
+        //categories: true, // fetch category details
         appointments: true, // fetch related appointments
+        client_organization_category: {
+          include: {
+            categories: true, // ✅ fetch categories via mapping
+          },
+        },
       },
     });
 
@@ -114,6 +119,52 @@ export const clientDetailsController = async (req, res) => {
       success: false,
       message: "Internal server error",
     });
+  }
+};
+
+export const updateClientBookedController = async (req, res) => {
+  const { clientId, orgId, status, categoryId } = req.body;
+
+  try {
+    if (!clientId || typeof clientId !== "string") {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid client ID" });
+    }
+
+    const existingStatus = await prisma.client_organization_category.findUnique(
+      {
+        where: {
+          client_id_organization_id_category_id: {
+            client_id: clientId,
+            organization_id: orgId,
+            category_id: categoryId,
+          },
+        },
+      }
+    );
+
+    if (!existingStatus) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Record Not found" });
+    }
+    await prisma.client_organization_category.update({
+      where: {
+        id: existingStatus.id,
+      },
+      data: { booked_status: status },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Status changed Successfully",
+    });
+  } catch (error) {
+    console.error("Error updating Status", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal Server Error" });
   }
 };
 

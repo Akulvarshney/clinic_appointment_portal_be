@@ -6,6 +6,7 @@ import {
   clientListingConroller,
   clientDetailsController,
   updateClientController,
+  updateClientBookedController,
 } from "../../controller/patientController.js";
 
 const router = Router();
@@ -16,5 +17,6 @@ router.get("/clientListing", clientListingConroller);
 router.get("/clientSearch", clientSearchController);
 router.get("/clientDetails/:clientId", clientDetailsController);
 router.put("/editclientDetails/:userId", updateClientController);
+router.put("/updateClientBookedStatus", updateClientBookedController);
 
 export default router;
