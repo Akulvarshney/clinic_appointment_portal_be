@@ -456,7 +456,7 @@ export const createEmployeeService = async (
         orgId,
         "SEND_EMP_REG_EMAIL"
       );
-      if (valid_notification) {
+      if (valid_notification && emailId) {
         console.log("Sending email");
         const { subject, html, text } = welcomeEmployeeTemplate(
           firstName,
@@ -562,7 +562,7 @@ export const createDoctorService = async (
         orgId,
         "SEND_DOCT_REG_EMAIL"
       );
-      if (valid_notification) {
+      if (valid_notification && emailId) {
         console.log("send email");
         const { subject, html, text } = welcomeDoctoreTemplate(
           firstName,

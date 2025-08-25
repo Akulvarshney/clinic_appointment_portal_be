@@ -146,7 +146,7 @@ export const registerClientService = async (
         "SEND_CLIENT_REG_EMAIL"
       );
 
-      if (valid_notification) {
+      if (valid_notification && email) {
         console.log("Sending Email");
         const { subject, text, html } = welcomeClientTemplate(
           Firstname,
