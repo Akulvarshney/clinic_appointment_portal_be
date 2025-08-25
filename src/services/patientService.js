@@ -34,6 +34,36 @@ async function generateClientPortalId() {
   });
 }
 
+async function generateLoginId(firstName, lastName) {
+  const baseLoginId =
+    lastName && lastName.trim() !== ""
+      ? `${firstName.trim().toLowerCase()}.${lastName.trim().toLowerCase()}`
+      : firstName.trim().toLowerCase();
+
+  let counter = 1;
+  const MAX_ATTEMPTS = 100;
+
+  while (counter <= MAX_ATTEMPTS) {
+    const suffix = counter === 1 ? "" : counter.toString().padStart(2, "0");
+    const loginId = `${baseLoginId}${suffix}`;
+
+    const existingUser = await Prisma.users.findUnique({
+      where: { login_id: loginId },
+      select: { id: true },
+    });
+
+    if (!existingUser) {
+      return loginId; // ✅ Found unique ID
+    }
+
+    counter++;
+  }
+
+  throw new Error(
+    "Failed to generate unique login ID after multiple attempts."
+  );
+}
+
 export const registerClientService = async (
   Firstname,
   Secondname,
@@ -48,6 +78,7 @@ export const registerClientService = async (
   organization_id,
   roleId
 ) => {
+  const login_id = await generateLoginId(Firstname, Secondname);
   const portal_id = await generateClientPortalId();
   console.log("portlaId created>> ", portal_id);
 
@@ -58,7 +89,7 @@ export const registerClientService = async (
         password_hash: await hashPassword(process.env.DEFAULT_CLIENT_PASSWORD),
         full_name: Firstname + " " + Secondname,
         phone: mobile,
-        login_id: portal_id,
+        login_id: login_id,
       },
     });
 
@@ -111,7 +142,7 @@ export const registerClientService = async (
         const { subject, text, html } = welcomeClientTemplate(
           Firstname,
           orgName.name,
-          portal_id,
+          login_id,
           process.env.DEFAULT_CLIENT_PASSWORD
         );
         await sendEmail({
