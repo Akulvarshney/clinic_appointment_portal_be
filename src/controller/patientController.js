@@ -6,7 +6,7 @@ import {
   clientSearchByIdService,
 } from "../services/patientService.js";
 import { sendResponse } from "../util/response.js";
-
+//SYNC
 export const registerClientController = async (req, res) => {
   try {
     const {
