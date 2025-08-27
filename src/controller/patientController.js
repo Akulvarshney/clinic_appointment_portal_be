@@ -136,15 +136,14 @@ export const updateClientBookedController = async (req, res) => {
     const existingStatus = await prisma.client_organization_category.findUnique(
       {
         where: {
-          client_id_organization_id_category_id: {
+          client_id_organization_id: {
             client_id: clientId,
             organization_id: orgId,
-            category_id: categoryId,
           },
         },
       }
     );
-
+    console.log(!existingStatus);
     if (!existingStatus) {
       return res
         .status(400)
