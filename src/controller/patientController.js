@@ -132,7 +132,7 @@ export const updateClientBookedController = async (req, res) => {
         .status(400)
         .json({ success: false, message: "Invalid client ID" });
     }
-
+    //
     const existingStatus = await prisma.client_organization_category.findUnique(
       {
         where: {
