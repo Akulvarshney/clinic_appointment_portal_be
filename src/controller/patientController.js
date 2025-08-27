@@ -91,6 +91,7 @@ export const clientDetailsController = async (req, res) => {
       include: {
         organizations: true, // fetch organization details
         users: true, // fetch user details
+        client_organizations: true,
         //categories: true, // fetch category details
         appointments: true, // fetch related appointments
         client_organization_category: {
@@ -170,8 +171,17 @@ export const updateClientBookedController = async (req, res) => {
 
 export const updateClientController = async (req, res) => {
   const { userId } = req.params;
-  const { first_name, last_name, phone, email, date_of_birth, address } =
-    req.body;
+  const {
+    orgId,
+    first_name,
+    last_name,
+    phone,
+    email,
+    date_of_birth,
+    address,
+    gender,
+    category,
+  } = req.body;
 
   try {
     if (!userId || typeof userId !== "string") {
@@ -203,7 +213,19 @@ export const updateClientController = async (req, res) => {
             ? new Date(date_of_birth)
             : existingClient.date_of_birth,
           address: address ?? existingClient.address,
+          gender: gender,
           updated_at: new Date(),
+        },
+      }),
+      prisma.client_organization_category.update({
+        data: {
+          category_id: category,
+        },
+        where: {
+          client_id_organization_id: {
+            client_id: existingClient.id,
+            organization_id: orgId,
+          },
         },
       }),
       prisma.users.update({

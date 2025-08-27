@@ -4,26 +4,27 @@ import { hashPassword } from "../util/password.js";
 import { sendEmail } from "../util/sendMail.js";
 import { checkNotificationActive } from "../util/checkNotificationActive.js";
 
-async function generateClientPortalId() {
+async function generateClientPortalId(organization_id) {
   return await Prisma.$transaction(async (tx) => {
-    const latest = await tx.clients.findFirst({
+    const latest = await tx.client_organizations.findFirst({
       where: {
-        portalid: {
+        portal_id: {
           startsWith: "CL_",
         },
+        organization_id,
       },
       orderBy: {
-        portalid: "desc",
+        portal_id: "desc",
       },
       select: {
-        portalid: true,
+        portal_id: true,
       },
     });
 
-    // Step 2: Calculate new portalId
+    // Step 2: Calculate new portal_id
     let nextNumber = 1;
-    if (latest?.portalid) {
-      const numPart = parseInt(latest.portalid.split("_")[1]);
+    if (latest?.portal_id) {
+      const numPart = parseInt(latest.portal_id.split("_")[1]);
       if (!isNaN(numPart)) {
         nextNumber = numPart + 1;
       }
@@ -79,7 +80,7 @@ export const registerClientService = async (
   roleId
 ) => {
   const login_id = await generateLoginId(Firstname, Secondname);
-  const portal_id = await generateClientPortalId();
+  const portal_id = await generateClientPortalId(organization_id);
   console.log("portlaId created>> ", portal_id);
 
   return await Prisma.$transaction(async (tx) => {
@@ -121,7 +122,15 @@ export const registerClientService = async (
         gender,
         occupation,
         emergencycontact: emergencyContact,
-        portalid: portal_id,
+        //portalid: portal_id,
+      },
+    });
+    const client_orgs_map = await tx.client_organizations.create({
+      data: {
+        organization_id,
+        client_id: client.id,
+        portal_id,
+        is_valid: true,
       },
     });
     console.log("client new reg ", client);
@@ -219,7 +228,7 @@ export const clientListingService = async ({
               { first_name: { contains: searchTerm, mode: "insensitive" } },
               { last_name: { contains: searchTerm, mode: "insensitive" } },
               { phone: { contains: searchTerm } },
-              { email: { contains: searchTerm, mode: "insensitive" } },
+              //{ email: { contains: searchTerm, mode: "insensitive" } },
             ],
           }
         : {},
@@ -241,6 +250,7 @@ export const clientListingService = async ({
     orderBy: { first_name: "asc" },
     //include: { categories: true },
     include: {
+      client_organizations: true,
       client_organization_category: {
         include: {
           categories: true,
