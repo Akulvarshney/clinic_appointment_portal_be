@@ -124,7 +124,7 @@ export const registerClientService = async (
         emergencycontact: emergencyContact,
         //portalid: portal_id,
       },
-    });
+    }); //
     const client_orgs_map = await tx.client_organizations.create({
       data: {
         organization_id,
