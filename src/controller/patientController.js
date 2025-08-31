@@ -46,7 +46,15 @@ export const registerClientController = async (req, res) => {
 
 // Controller
 export const clientListingConroller = async (req, res) => {
-  const { search = "", page = 1, limit = 10, orgId, categoryId } = req.query;
+  const {
+    search = "",
+    page = 1,
+    limit = 10,
+    orgId,
+    categoryId,
+    sort,
+    sortDir,
+  } = req.query;
 
   try {
     const response = await clientListingService({
@@ -55,6 +63,8 @@ export const clientListingConroller = async (req, res) => {
       limit,
       orgId,
       categoryId,
+      sort,
+      sortDir,
     });
     res.json(response);
   } catch (error) {
@@ -68,7 +78,7 @@ export const clientSearchController = async (req, res) => {
 
   try {
     const response = await clientSearchService(search, limit, orgId);
-    res.json(response); // ✅ Send response to frontend
+    res.json(response);
   } catch (error) {
     console.error("Error in client listing:", error);
     res.status(500).json({ error: "Internal Server Error" });
@@ -78,6 +88,7 @@ export const clientSearchController = async (req, res) => {
 export const clientDetailsController = async (req, res) => {
   try {
     const { clientId } = req.params;
+    const { orgId } = req.query;
 
     if (!clientId) {
       return res.status(400).json({
@@ -89,14 +100,14 @@ export const clientDetailsController = async (req, res) => {
     const client = await prisma.clients.findUnique({
       where: { id: clientId },
       include: {
-        organizations: true, // fetch organization details
-        users: true, // fetch user details
-        client_organizations: true,
-        //categories: true, // fetch category details
-        appointments: true, // fetch related appointments
+        users: true, // fetch linked user
+        appointments: true, // fetch appointments
+        reminder: true, // fetch reminders
         client_organization_category: {
+          where: orgId ? { organization_id: orgId } : {},
           include: {
-            categories: true, // ✅ fetch categories via mapping
+            categories: true, // fetch categories
+            organizations: true, // fetch organizations via mapping
           },
         },
       },
@@ -132,7 +143,7 @@ export const updateClientBookedController = async (req, res) => {
         .status(400)
         .json({ success: false, message: "Invalid client ID" });
     }
-    //
+    console.log("oasd", orgId, clientId);
     const existingStatus = await prisma.client_organization_category.findUnique(
       {
         where: {

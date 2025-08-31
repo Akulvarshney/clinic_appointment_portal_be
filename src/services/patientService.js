@@ -6,7 +6,7 @@ import { checkNotificationActive } from "../util/checkNotificationActive.js";
 
 async function generateClientPortalId(organization_id) {
   return await Prisma.$transaction(async (tx) => {
-    const latest = await tx.client_organizations.findFirst({
+    const latest = await tx.client_organization_category.findFirst({
       where: {
         portal_id: {
           startsWith: "CL_",
@@ -118,27 +118,22 @@ export const registerClientService = async (
         address,
         //category_id: category,
         date_of_birth: dob ? new Date(dob) : null,
-        organization_id,
+        // organization_id,
         gender,
         occupation,
         emergencycontact: emergencyContact,
         //portalid: portal_id,
       },
     }); //
-    const client_orgs_map = await tx.client_organizations.create({
-      data: {
-        organization_id,
-        client_id: client.id,
-        portal_id,
-        is_valid: true,
-      },
-    });
+
     console.log("client new reg ", client);
     const client_ord_cat = await tx.client_organization_category.create({
       data: {
         organization_id,
         client_id: client.id,
         category_id: category,
+        portal_id,
+        is_valid: true,
       },
     });
     console.log("client new reg2 ", client_ord_cat);
@@ -197,70 +192,77 @@ export const clientListingConroller = async (req, res) => {
   }
 };
 
-// service
 export const clientListingService = async ({
   search,
   page,
   limit,
   orgId,
   categoryId,
+  sort,
+  sortDir,
 }) => {
-  console.log("Org ID:", orgId);
-  console.log("Search:", search);
-  console.log("Page:", page);
-  console.log("Category ID:", categoryId);
-
-  // Ensure search is always a string
   const searchTerm = typeof search === "string" ? search.trim() : "";
-
-  // Ensure pagination is numeric
   const pageNum = Number(page) || 1;
   const limitNum = Number(limit) || 10;
 
-  // Build where clause safely
-  const whereClause = {
-    ...(orgId ? { organization_id: orgId } : {}), // only include if defined
-    AND: [
-      //{ is_valid: true },
-      searchTerm
-        ? {
-            OR: [
-              { first_name: { contains: searchTerm, mode: "insensitive" } },
-              { last_name: { contains: searchTerm, mode: "insensitive" } },
-              { phone: { contains: searchTerm } },
-              //{ email: { contains: searchTerm, mode: "insensitive" } },
-            ],
-          }
-        : {},
-      //categoryId ? { category_id: categoryId } : {},
-      categoryId
-        ? {
-            client_organization_category: {
-              some: { category_id: categoryId },
-            },
-          }
-        : {},
-    ],
-  };
+  // Build client filter for search
+  const clientFilter = searchTerm
+    ? {
+        OR: [
+          { first_name: { contains: searchTerm, mode: "insensitive" } },
+          { last_name: { contains: searchTerm, mode: "insensitive" } },
+          { phone: { contains: searchTerm } },
+        ],
+      }
+    : {};
 
-  const clients = await Prisma.clients.findMany({
-    where: whereClause,
-    skip: (pageNum - 1) * limitNum,
-    take: limitNum,
-    orderBy: { first_name: "asc" },
-    //include: { categories: true },
-    include: {
-      client_organizations: true,
-      client_organization_category: {
-        include: {
-          categories: true,
-        },
+  // Build category filter
+  const categoryFilter = categoryId ? { category_id: categoryId } : {};
+
+  // Determine ordering
+  let orderByClause;
+  if (sort === "portalid") {
+    orderByClause = { portal_id: sortDir || "asc" };
+  } else if (sort === "name") {
+    orderByClause = [
+      { clients: { first_name: sortDir || "asc" } },
+      { clients: { last_name: sortDir || "asc" } },
+    ];
+  } else {
+    orderByClause = { clients: { first_name: "asc" } };
+  }
+
+  // Query client_organization_category table to handle portalid sorting and filters
+  const categoriesWithClients =
+    await Prisma.client_organization_category.findMany({
+      where: {
+        organization_id: orgId,
+        ...categoryFilter,
+        clients: clientFilter,
       },
-    },
-  });
+      orderBy: orderByClause,
+      include: {
+        clients: true,
+        categories: true,
+        organizations: true,
+      },
+      skip: (pageNum - 1) * limitNum,
+      take: limitNum,
+    });
 
-  const totalCount = await Prisma.clients.count({
-    where: whereClause,
+  // Map results back to client structure
+  const clients = categoriesWithClients.map((c) => ({
+    ...c.clients,
+    client_organization_category: [c],
+  }));
+
+  // Get total count for pagination
+  const totalCount = await Prisma.client_organization_category.count({
+    where: {
+      organization_id: orgId,
+      ...categoryFilter,
+      clients: clientFilter,
+    },
   });
 
   return {
