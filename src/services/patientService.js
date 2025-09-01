@@ -133,7 +133,7 @@ export const registerClientService = async (
         client_id: client.id,
         category_id: category,
         portal_id,
-        is_valid: true,
+        //is_valid: true,
       },
     });
     console.log("client new reg2 ", client_ord_cat);

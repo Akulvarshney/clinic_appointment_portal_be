@@ -12,7 +12,7 @@ model clients {
   id                           String                         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   portalid                     String?                        @unique @db.VarChar(20)
   userid                       String                         @unique @db.Uuid
-  organization_id              String                         @db.Uuid
+  
   first_name                   String?                        @db.VarChar(255)
   last_name                    String?                        @db.VarChar(255)
   email                        String?                        @db.VarChar(255)
@@ -27,7 +27,6 @@ model clients {
   updated_at                   DateTime?                      @default(now()) @db.Timestamptz(6)
   appointments                 appointments[]
   client_organization_category client_organization_category[]
-  organizations                organizations                  @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   users                        users                          @relation(fields: [userid], references: [id], onDelete: NoAction, onUpdate: NoAction)
   reminder                     reminder[]
 }
@@ -61,7 +60,6 @@ model organizations {
   appointments                 appointments[]
   categories                   categories[]
   client_organization_category client_organization_category[]
-  clients                      clients[]
   doctors                      doctors[]
   employees                    employees[]
   notifications_organizations  notifications_organizations[]

@@ -3,10 +3,11 @@ import Prisma from "../prisma.js";
 import { startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
 
 export const getKPIDataService = async (orgId, timezone = "Asia/Kolkata") => {
-  const totalClients = await Prisma.clients.count({
+  const totalClients = await Prisma.client_organization_category.count({
     where: { organization_id: orgId },
   });
 
+  console.log("totalClients>>> ", totalClients);
   const now = DateTime.now().setZone(timezone);
 
   const todayStart = now.startOf("day").toUTC().toJSDate();
