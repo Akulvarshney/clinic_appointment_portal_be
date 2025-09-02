@@ -19,6 +19,10 @@ export const tabFeatureConfig = [
         feature_name: "View Appointments",
       },
       {
+        feature_unique_name: "VIEW_CLIENT_MOBILE",
+        feature_name: "View Client Mobile Number",
+      },
+      {
         feature_unique_name: "ADD_APPOINTMENT",
         feature_name: "Add Appointment",
       },

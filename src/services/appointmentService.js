@@ -56,7 +56,7 @@ export const bookAppointmentService = async (
       remarks: remarks,
       service_id: serviceId,
       doctor_id: doctorId ? doctorId : null,
-      employee_id:employeeId ? employeeId:null,
+      employee_id: employeeId ? employeeId : null,
     },
   });
   console.log("Booked APPOINTMETNT>>>> ", appt);
@@ -86,6 +86,14 @@ export const getActiveAppointmentService = async (orgId, date) => {
           first_name: true,
           email: true,
           phone: true,
+          client_organization_category: {
+            where: {
+              organization_id: orgId, // important, since client can exist in multiple orgs
+            },
+            select: {
+              portal_id: true,
+            },
+          },
         },
       },
       services: {
@@ -96,13 +104,13 @@ export const getActiveAppointmentService = async (orgId, date) => {
       },
       doctors: {
         select: {
-          id:true,
+          id: true,
           first_name: true,
         },
       },
       employees: {
         select: {
-          id:true,
+          id: true,
           first_name: true,
         },
       },
@@ -162,25 +170,30 @@ export const reScheduleAppointmentService = async (
   });
 };
 
-
- export const updateAppointmentService = async(id,doctorId, employeeId,serviceId,notes) =>{
-    const appt= await Prisma.appointments.findFirst({
-      where:{
-        id,
-      }
-    })
-    if(!appt){
-      throw new Error("Appointment not found this ID");
-    }
-    await Prisma.appointments.update({
-      where:{
-        id,
-      },
-      data:{
-        service_id:serviceId,
-        employee_id:employeeId,
-        doctor_id:doctorId,
-        remarks:notes,
-      }
-    })
-}
+export const updateAppointmentService = async (
+  id,
+  doctorId,
+  employeeId,
+  serviceId,
+  notes
+) => {
+  const appt = await Prisma.appointments.findFirst({
+    where: {
+      id,
+    },
+  });
+  if (!appt) {
+    throw new Error("Appointment not found this ID");
+  }
+  await Prisma.appointments.update({
+    where: {
+      id,
+    },
+    data: {
+      service_id: serviceId,
+      employee_id: employeeId,
+      doctor_id: doctorId,
+      remarks: notes,
+    },
+  });
+};
