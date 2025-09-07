@@ -121,7 +121,7 @@ export const trackApplication = async (req, res) => {
     );
   } catch (err) {
     console.log("2 ", err.message);
-    res.status(401).json({ message: err.message });
+    res.status(500).json({ message: err.message });
   }
   //console.log("response received ", response);
 };
@@ -161,6 +161,6 @@ export const checkShortNameController = async (req, res) => {
     sendResponse(res, { message: response }, 200);
   } catch (error) {
     console.log(error);
-    res.status(401).json({ message: error.message });
+    res.status(500).json({ message: error.message });
   }
 };

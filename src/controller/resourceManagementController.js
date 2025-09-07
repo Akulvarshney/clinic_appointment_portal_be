@@ -17,7 +17,7 @@ export const createResourceController = async (req, res) => {
     );
   } catch (error) {
     console.log("Error herer.   ", error.message);
-    res.status(401).json({ message: error.message });
+    res.status().json({ message: error.message });
   }
 };
 
@@ -32,7 +32,7 @@ export const getResourcesController = async (req, res) => {
     );
   } catch (error) {
     console.log("Error herer.   ", error.message);
-    res.status(401).json({ message: "Error: while getting records" });
+    res.status(500).json({ message: "Error: while getting records" });
   }
 };
 
@@ -42,7 +42,7 @@ export const updateResourceController = async (req, res) => {
     const { id } = req.body;
 
     if (!id) {
-      return res.status(400).json({ message: "Resource ID is required" });
+      return res.status(404).json({ message: "Resource ID is required" });
     }
     //const { status, id } = req.body;
     //console.log(status);
@@ -54,6 +54,6 @@ export const updateResourceController = async (req, res) => {
     );
   } catch (error) {
     console.log("Error herer.   ", error.message);
-    res.status(401).json({ message: error.message });
+    res.status(500).json({ message: error.message });
   }
 };

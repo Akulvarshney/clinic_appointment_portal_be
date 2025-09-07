@@ -137,6 +137,21 @@ export const tabFeatureConfig = [
   },
   {
     tab_number: 9,
+    tab_unique_name: "BILLING",
+    tab_name: "Billing",
+    tab_path: "/billing",
+    features: [
+      { feature_unique_name: "VIEW_BILLS", feature_name: "View Bills" },
+      { feature_unique_name: "CREATE_INVOICE", feature_name: "Create Invoice" },
+      {
+        feature_unique_name: "CREATE_QUOTATION",
+        feature_name: "Create Quotation",
+      },
+      { feature_unique_name: "CREATE_RECEIPT", feature_name: "Create Receipt" },
+    ],
+  },
+  {
+    tab_number: 10,
     tab_unique_name: "SETTINGS",
     tab_name: "Settings",
     tab_path: "/settings",

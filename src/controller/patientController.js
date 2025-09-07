@@ -40,7 +40,7 @@ export const registerClientController = async (req, res) => {
     );
     sendResponse(res, { message: response.message }, 200);
   } catch (error) {
-    res.status(401).json({ message: error.message });
+    res.status(500).json({ message: error.message });
   }
 };
 

@@ -583,3 +583,58 @@ export const createDoctorService = async (
     } else return { message: "Error in generating Doctor", status: 400 };
   });
 };
+
+export const getOrgDetailsService = async (orgId) => {
+  const org = await Prisma.organizations.findUnique({
+    where: {
+      id: orgId,
+    },
+  });
+  return org;
+};
+
+export const saveOrgDetailsService = async (
+  orgId,
+  name,
+  company_name,
+  gstnumber,
+  invoice_prefix,
+  invoice_sequence_start,
+  address,
+  billing_phone,
+  billing_email
+) => {
+  const org = await Prisma.organizations.findUnique({
+    where: {
+      id: orgId,
+    },
+  });
+  if (!orgId) {
+    throw new Error("Organization does not exist");
+  }
+
+  await Prisma.organizations.update({
+    where: { id: orgId },
+    data: {
+      is_complete: true,
+      name: name,
+      company_name,
+      gstnumber: gstnumber,
+      invoice_prefix,
+      invoice_sequence_start: parseInt(invoice_sequence_start),
+      address,
+      billing_phone: billing_phone,
+      billing_email: billing_email,
+    },
+  });
+  return org;
+};
+
+export const updateOrgDetailsService = async (orgId) => {
+  const org = await Prisma.organizations.findUnique({
+    where: {
+      id: orgId,
+    },
+  });
+  return org;
+};

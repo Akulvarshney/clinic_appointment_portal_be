@@ -12,7 +12,6 @@ model clients {
   id                           String                         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   portalid                     String?                        @unique @db.VarChar(20)
   userid                       String                         @unique @db.Uuid
-  
   first_name                   String?                        @db.VarChar(255)
   last_name                    String?                        @db.VarChar(255)
   email                        String?                        @db.VarChar(255)
@@ -26,6 +25,7 @@ model clients {
   created_at                   DateTime?                      @default(now()) @db.Timestamptz(6)
   updated_at                   DateTime?                      @default(now()) @db.Timestamptz(6)
   appointments                 appointments[]
+  bills                        bills[]
   client_organization_category client_organization_category[]
   users                        users                          @relation(fields: [userid], references: [id], onDelete: NoAction, onUpdate: NoAction)
   reminder                     reminder[]
@@ -57,7 +57,14 @@ model organizations {
   gstnumber                    String?                        @db.VarChar(100)
   address                      String?                        @db.VarChar(100)
   shortorgname                 String?                        @db.VarChar(20)
+  company_name                 String?                        @db.VarChar(255)
+  invoice_prefix               String?                        @db.VarChar(10)
+  invoice_sequence_start       Int                            @default(1)
+  billing_address              String?                        @db.VarChar(255)
+  billing_phone                String?                        @db.VarChar(20)
+  billing_email                String?                        @db.VarChar(100)
   appointments                 appointments[]
+  bills                        bills[]
   categories                   categories[]
   client_organization_category client_organization_category[]
   doctors                      doctors[]
@@ -251,6 +258,7 @@ model services {
   portal_id       String?              @unique
   status          services_status_enum @default(ENABLED)
   appointments    appointments[]
+  bill_line_items bill_line_items[]
   organizations   organizations        @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_organization")
 }
 
@@ -366,12 +374,52 @@ model client_organization_category {
   booked_status   booked_status @default(UNBOOKED)
   created_at      DateTime?     @default(now()) @db.Timestamptz(6)
   updated_at      DateTime?     @default(now()) @db.Timestamptz(6)
-  portal_id       String?       @db.VarChar(50)
+  portal_id       String        @db.VarChar(50)
+  is_valid        Boolean?      @default(true)
   categories      categories    @relation(fields: [category_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_category")
   clients         clients       @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_client")
   organizations   organizations @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_organization")
 
   @@unique([client_id, organization_id], map: "uqq_client_org")
+  @@unique([organization_id, portal_id], map: "unique_org_portal_id")
+  @@unique([client_id, organization_id, category_id], map: "uqq_client_org_category")
+}
+
+model bill_line_items {
+  id                  String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  bill_id             String   @db.Uuid
+  service_id          String   @db.Uuid
+  quantity            Int      @default(1)
+  unit_price          Decimal  @db.Decimal(12, 2)
+  discount_amount     Decimal? @default(0) @db.Decimal(12, 2)
+  discount_percentage Decimal? @default(0) @db.Decimal(12, 2)
+  total_amount        Decimal  @db.Decimal(12, 2)
+  created_at          DateTime @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime @default(now()) @db.Timestamptz(6)
+  bills               bills    @relation(fields: [bill_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_bill_line_items_bill")
+  services            services @relation(fields: [service_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_bill_line_items_service")
+}
+
+model bills {
+  id                  String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  invoice_number      String            @db.VarChar(30)
+  organization_id     String            @db.Uuid
+  client_id           String            @db.Uuid
+  final_amount        Decimal           @db.Decimal(12, 2)
+  basic_amount        Decimal           @db.Decimal(12, 2)
+  gst_amount          Decimal           @db.Decimal(12, 2)
+  gst_percentage      Decimal           @db.Decimal(12, 2)
+  discount            Decimal           @db.Decimal(12, 2)
+  discount_percentage Decimal           @db.Decimal(12, 2)
+  remarks             String?           @db.VarChar(255)
+  is_valid            Boolean           @default(true)
+  created_at          DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime          @default(now()) @db.Timestamptz(6)
+  bill_line_items     bill_line_items[]
+  clients             clients           @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_bills_client")
+  organizations       organizations     @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_bills_organization")
+
+  @@unique([organization_id, invoice_number], map: "uq_bills_org_invoice")
 }
 
 enum ApplicationStatus {
