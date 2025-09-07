@@ -16,7 +16,7 @@ export const createServiceController = async (req, res) => {
     );
   } catch (error) {
     console.log("Error herer.   ", error.message);
-    res.status(401).json({ message: error.message });
+    res.status(500).json({ message: error.message });
   }
 };
 
@@ -70,7 +70,7 @@ export const getActiveServicesController = async (req, res) => {
     );
   } catch (error) {
     console.log("Error herer.   ", error.message);
-    res.status(401).json({ message: "Error: while getting records" });
+    res.status(500).json({ message: "Error: while getting records" });
   }
 };
 

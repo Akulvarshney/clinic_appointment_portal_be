@@ -8,6 +8,9 @@ import {
   getDoctorService,
   getEmployeesService,
   updateRoleService,
+  getOrgDetailsService,
+  saveOrgDetailsService,
+  updateOrgDetailsService,
 } from "../services/userMgmtService.js";
 import { response } from "express";
 import { PrismaClient } from "@prisma/client";
@@ -80,7 +83,7 @@ export const createRoleController = async (req, res) => {
     );
   } catch (error) {
     console.log("Error herer.   ", error.message);
-    res.status(401).json({ message: error.message });
+    res.status(500).json({ message: error.message });
   }
 };
 export const getRolesController = async (req, res) => {
@@ -343,7 +346,7 @@ export const createEmployeeController = async (req, res) => {
       200
     );
   } catch (error) {
-    res.status(401).json({ message: error.message });
+    res.status(500).json({ message: error.message });
   }
 };
 
@@ -382,7 +385,71 @@ export const createDoctorController = async (req, res) => {
       200
     );
   } catch (error) {
-    console.log("anaksha???? ", error);
-    res.status(401).json({ message: error.message });
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getOrgDetails = async (req, res) => {
+  try {
+    const { orgId } = req.query;
+    const response = await getOrgDetailsService(orgId);
+    sendResponse(
+      res,
+      { message: response.message, response, status: response.status },
+      200
+    );
+  } catch (err) {
+    console.log(err);
+    res.status(400).json({ message: "Error getting the records" });
+  }
+};
+
+export const saveOrgDetails = async (req, res) => {
+  try {
+    const { orgId } = req.query;
+    const {
+      name,
+      company_name,
+      gstnumber,
+      invoice_prefix,
+      invoice_sequence_start,
+      address,
+      billing_phone,
+      billing_email,
+    } = req.body;
+    const response = await saveOrgDetailsService(
+      orgId,
+      name,
+      company_name,
+      gstnumber,
+      invoice_prefix,
+      invoice_sequence_start,
+      address,
+      billing_phone,
+      billing_email
+    );
+    sendResponse(
+      res,
+      { message: response.message, response, status: response.status },
+      200
+    );
+  } catch (err) {
+    console.log(err);
+    res.status(400).json({ message: "Error getting the records" });
+  }
+};
+
+export const updateOrgDetails = async (req, res) => {
+  try {
+    const { orgId } = req.query;
+    const response = await updateOrgDetailsService(orgId);
+    sendResponse(
+      res,
+      { message: response.message, response, status: response.status },
+      200
+    );
+  } catch (err) {
+    console.log(err);
+    res.status(400).json({ message: "Error getting the records" });
   }
 };

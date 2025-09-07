@@ -63,7 +63,7 @@ export const getActiveAppointmentsController = async (req, res) => {
     );
   } catch (error) {
     console.log("Error herer.   ", error.message);
-    res.status(401).json({ message: "Error: while getting Appointments" });
+    res.status(500).json({ message: "Error: while getting Appointments" });
   }
 };
 
@@ -79,7 +79,7 @@ export const cancelAppointmentController = async (req, res) => {
     );
   } catch (error) {
     console.log("Error herer.   ", error.message);
-    res.status(401).json({ message: "Error: while cancelling Appointment" });
+    res.status(500).json({ message: "Error: while cancelling Appointment" });
   }
 };
 
@@ -99,7 +99,7 @@ export const changeAppointmentStatusController = async (req, res) => {
     );
   } catch (error) {
     console.log("Error herer.   ", error.message);
-    res.status(401).json({ message: "Error: while updating status" });
+    res.status(500).json({ message: "Error: while updating status" });
   }
 };
 
@@ -119,7 +119,7 @@ export const reScheduleAppointmentController = async (req, res) => {
     );
   } catch (error) {
     console.log("Error here.   ", error.message);
-    res.status(401).json({ message: "Error: while rescheduling Appointment" });
+    res.status(500).json({ message: "Error: while rescheduling Appointment" });
   }
 };
 
@@ -140,6 +140,6 @@ export const updateAppointmentController = async (req, res) => {
     );
   } catch (error) {
     console.log("Error here.   ", error.message);
-    res.status(401).json({ message: "Error: while updating Appointment" });
+    res.status(500).json({ message: "Error: while updating Appointment" });
   }
 };

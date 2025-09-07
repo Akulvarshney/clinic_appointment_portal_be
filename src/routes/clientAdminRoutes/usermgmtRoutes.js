@@ -11,6 +11,8 @@ import {
   updateTabAndFeatureAccess,
   updateRoleController,
   getUserDetails,
+  getOrgDetails,
+  saveOrgDetails,
 } from "../../controller/userMgmtController.js";
 import {
   validateCreateRole,
@@ -57,5 +59,8 @@ router.get("/getUserDetails/:userId", getUserDetails);
 
 router.get("/getNotificationsByOrg/:organization_id", getNotificationsByOrg);
 router.put("/updateNotification", updateNotification);
+
+router.get("/getOrgDetails", getOrgDetails);
+router.put("/saveOrgDetails", saveOrgDetails);
 
 export default router;
