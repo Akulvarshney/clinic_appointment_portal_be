@@ -74,6 +74,10 @@ export const registerClientService = async (
   gender,
   occupation,
   email,
+  state,
+  city,
+  country,
+  pinCode,
   emergencyContact,
   category,
   organization_id,
@@ -108,23 +112,28 @@ export const registerClientService = async (
       },
     });
 
+    const parsedDob =
+      dob && !isNaN(new Date(dob).getTime()) ? new Date(dob) : null;
+
     const client = await tx.clients.create({
       data: {
         first_name: Firstname,
         last_name: Secondname,
-        email,
-        phone: mobile,
+        email: email || null,
+        phone: mobile || null,
         userid: newUser.id,
-        address,
-        //category_id: category,
-        date_of_birth: dob ? new Date(dob) : null,
-        // organization_id,
-        gender,
-        occupation,
-        emergencycontact: emergencyContact,
-        //portalid: portal_id,
+        address: address || null,
+        state: state || null,
+        city: city || null,
+        country: country || null,
+        pinCode: pinCode || null,
+        date_of_birth: parsedDob,
+        gender: gender || null,
+        occupation: occupation || null,
+        emergencycontact: emergencyContact || null,
+        portalid: portal_id,
       },
-    }); //
+    });
 
     console.log("client new reg ", client);
     const client_ord_cat = await tx.client_organization_category.create({

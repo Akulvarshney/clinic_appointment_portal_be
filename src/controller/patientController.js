@@ -22,6 +22,10 @@ export const registerClientController = async (req, res) => {
       category,
       organization_id,
       roleId,
+      state,
+      city,
+      country,
+      pinCode,
     } = req.body;
 
     const response = await registerClientService(
@@ -33,6 +37,10 @@ export const registerClientController = async (req, res) => {
       gender,
       occupation,
       email,
+      state,
+      city,
+      country,
+      pinCode,
       emergencyContact,
       category,
       organization_id,

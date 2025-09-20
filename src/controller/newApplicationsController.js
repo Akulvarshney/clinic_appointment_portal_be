@@ -12,11 +12,25 @@ import { sendResponse, sendErrorResponse } from "../util/response.js";
 
 export const submitNewApplicationWithCheck = async (req, res) => {
   try {
-    const { org_name, org_short_name, email, phone, client_name, address } =
-      req.body;
+    const {
+      org_name,
+      org_short_name,
+      email,
+      phone,
+      client_name,
+      address,
+      state,
+    } = req.body;
 
     // Required field check
-    if (!org_name || !org_short_name || !email || !phone || !client_name) {
+    if (
+      !org_name ||
+      !org_short_name ||
+      !email ||
+      !phone ||
+      !client_name ||
+      !state
+    ) {
       return sendErrorResponse(
         res,
         "All required fields must be provided.",
@@ -59,6 +73,7 @@ export const submitNewApplicationWithCheck = async (req, res) => {
         const createdApp = await tx.organization_applications.create({
           data: {
             organization_name: org_name,
+            state,
             org_short_name,
             email,
             phone,

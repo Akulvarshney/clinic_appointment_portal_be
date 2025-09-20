@@ -148,6 +148,7 @@ export async function ApproveApplication(uuid, record) {
           name: record.organization_name,
           address: record.address,
           shortorgname: record.org_short_name,
+          state: record.state,
         },
       });
 
