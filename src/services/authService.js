@@ -113,6 +113,7 @@ export const loginUser = async (loginId, password) => {
       gstnumber: org.gstnumber,
       is_valid: org.is_valid,
       is_complete: org.is_complete,
+      state: org.state,
       roles,
     };
   });
