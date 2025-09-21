@@ -40,6 +40,7 @@ model organization_applications {
   organization_name  String            @db.VarChar(255)
   org_short_name     String            @db.VarChar(50)
   address            String?
+  state              String?           @db.VarChar(50)
   email              String            @db.VarChar(255)
   phone              String?           @db.VarChar(20)
   rejection_remarks  String?

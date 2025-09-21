@@ -30,7 +30,13 @@ async function generateServicePortalId() {
   });
 }
 
-export const createServiceInfo = async (serviceName, desc, price, orgId) => {
+export const createServiceInfo = async (
+  serviceName,
+  desc,
+  price,
+  orgId,
+  tax_percentage
+) => {
   return await Prisma.$transaction(async (tx) => {
     const portal = await generateServicePortalId();
     console.log("portal_id >>> ", portal);
@@ -41,6 +47,7 @@ export const createServiceInfo = async (serviceName, desc, price, orgId) => {
         price: price,
         organization_id: orgId,
         portal_id: portal,
+        tax_percentage: tax_percentage,
       },
     });
     if (service)
@@ -123,6 +130,7 @@ export const updateServices = async ({
   price,
   orgId,
   status,
+  tax_percentage,
 }) => {
   const updatedService = await Prisma.services.update({
     where: { id },
@@ -132,6 +140,7 @@ export const updateServices = async ({
       ...(price && { price }),
       ...(orgId && { organization_id: orgId }),
       ...(status && { status }),
+      ...(tax_percentage && { tax_percentage }),
     },
   });
 

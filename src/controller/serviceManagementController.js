@@ -7,8 +7,14 @@ import {
 } from "../services/serviceManagementService.js";
 export const createServiceController = async (req, res) => {
   try {
-    const { serviceName, desc, price, orgId } = req.body;
-    const response = await createServiceInfo(serviceName, desc, price, orgId);
+    const { serviceName, desc, price, orgId, tax_percentage } = req.body;
+    const response = await createServiceInfo(
+      serviceName,
+      desc,
+      price,
+      orgId,
+      tax_percentage
+    );
     sendResponse(
       res,
       { message: response.message, status: response.status },
@@ -76,7 +82,8 @@ export const getActiveServicesController = async (req, res) => {
 
 export const updateServicesController = async (req, res) => {
   try {
-    const { id, serviceName, desc, price, orgId, status } = req.body;
+    const { id, serviceName, desc, price, orgId, status, tax_percentage } =
+      req.body;
 
     if (!id) {
       return res.status(400).json({ message: "Service ID is required" });
@@ -89,6 +96,7 @@ export const updateServicesController = async (req, res) => {
       price,
       orgId,
       status,
+      tax_percentage,
     });
 
     sendResponse(

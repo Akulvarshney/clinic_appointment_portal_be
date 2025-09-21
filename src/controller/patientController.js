@@ -199,6 +199,7 @@ export const updateClientController = async (req, res) => {
     address,
     gender,
     category,
+    state,
   } = req.body;
 
   try {
@@ -233,6 +234,7 @@ export const updateClientController = async (req, res) => {
           address: address ?? existingClient.address,
           gender: gender,
           updated_at: new Date(),
+          state: state ?? existingClient?.state,
         },
       }),
       prisma.client_organization_category.update({
