@@ -16,54 +16,60 @@ const getCurrentFinancialYear = () => {
 // Helper function to generate invoice number
 const generateInvoiceNumber = async (organizationId) => {
   try {
-    // Get organization details
-    const organization = await prisma.organizations.findUnique({
-      where: { id: organizationId },
-      select: {
-        invoice_prefix: true,
-        invoice_sequence_start: true,
-        name: true,
-      },
-    });
-
-    if (!organization) {
-      throw new Error("Organization not found");
-    }
-
     const financialYear = getCurrentFinancialYear();
-    const prefix = organization.invoice_prefix || "INV";
 
-    // Find the last invoice for this organization in current financial year
-    const lastInvoice = await prisma.bills.findFirst({
-      where: {
-        organization_id: organizationId,
-        bill_type: "INVOICE",
-        invoice_number: {
-          startsWith: `${prefix}/${financialYear}/`,
+    // Use a transaction to ensure atomicity
+    const newInvoiceNumber = await prisma.$transaction(async (tx) => {
+      // Get organization details within the transaction
+      const organization = await tx.organizations.findUnique({
+        where: { id: organizationId },
+        select: {
+          invoice_prefix: true,
+          invoice_sequence_start: true,
+          name: true,
         },
-      },
-      orderBy: {
-        created_at: "desc",
-      },
-      select: {
-        invoice_number: true,
-      },
-    });
+      });
 
-    let sequenceNumber = organization.invoice_sequence_start;
+      if (!organization) {
+        throw new Error("Organization not found");
+      }
 
-    if (lastInvoice) {
-      // Extract sequence number from last invoice
-      const parts = lastInvoice.invoice_number.split("/");
-      if (parts.length === 3) {
-        const lastSequence = parseInt(parts[2]);
-        if (!isNaN(lastSequence)) {
-          sequenceNumber = lastSequence + 1;
+      const prefix = organization.invoice_prefix || "INV";
+
+      const lastInvoice = await tx.bills.findFirst({
+        where: {
+          organization_id: organizationId,
+          bill_type: "INVOICE",
+          invoice_number: {
+            startsWith: `${prefix}/${financialYear}/`,
+          },
+        },
+        orderBy: {
+          created_at: "desc", // This is the fix.
+        },
+        select: {
+          invoice_number: true,
+        },
+      });
+
+      let sequenceNumber = organization.invoice_sequence_start;
+
+      if (lastInvoice) {
+        // Extract and increment the sequence number from the last invoice
+        const parts = lastInvoice.invoice_number.split("/");
+        if (parts.length === 3) {
+          const lastSequence = parseInt(parts[2]);
+          if (!isNaN(lastSequence)) {
+            sequenceNumber = lastSequence + 1;
+          }
         }
       }
-    }
 
-    return `${prefix}/${financialYear}/${sequenceNumber}`;
+      // Return the new invoice number string
+      return `${prefix}/${financialYear}/${sequenceNumber}`;
+    });
+
+    return newInvoiceNumber;
   } catch (error) {
     console.error("Error generating invoice number:", error);
     throw error;
@@ -194,6 +200,8 @@ export const createInvoice = async (req, res) => {
 
     // Generate invoice number
     const invoiceNumber = await generateInvoiceNumber(organization_id);
+
+    console.log("inoice number", invoiceNumber);
 
     // Start transaction
     const result = await prisma.$transaction(async (tx) => {
