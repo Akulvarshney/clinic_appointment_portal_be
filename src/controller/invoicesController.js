@@ -464,6 +464,7 @@ export const getInvoices = async (req, res) => {
       organization_id,
       client_id,
       status,
+      bill_type,
       page = 1,
       limit = 10,
     } = req.query;
@@ -502,10 +503,12 @@ export const getInvoices = async (req, res) => {
         invoice_date: true,
         grand_total: true,
         status: true,
+        bill_to_text: true,
+        bill_type: true,
         clients: {
           select: {
             id: true,
-            name: true,
+            first_name: true,
             email: true,
           },
         },
@@ -529,11 +532,14 @@ export const getInvoices = async (req, res) => {
     });
 
     // Transform data to match requirements
+    console.log("bills sid", bills);
     const transformedBills = bills.map((bill) => ({
       invoice_id: bill.id,
       invoice_number: bill.invoice_number,
       invoice_date: bill.invoice_date,
-      client_name: bill.clients.name,
+      client_name: bill.clients.first_name,
+      bill_to: bill.bill_to_text,
+      bill_type: bill.bill_type,
       client_email: bill.clients.email,
       number_of_services: bill.bill_line_items.length,
       final_amount: bill.grand_total,

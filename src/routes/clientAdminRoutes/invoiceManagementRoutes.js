@@ -9,6 +9,6 @@ const router = Router();
 
 router.post("/create", createInvoice);
 router.post("/quotation/create", createQuotation);
-router.get("/getInvoice", getInvoices);
+router.get("/getBills", getInvoices);
 
 export default router;
