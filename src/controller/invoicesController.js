@@ -13,11 +13,10 @@ const getCurrentFinancialYear = () => {
   }
 };
 
-// Helper function to generate invoice number
 const generateInvoiceNumber = async (organizationId) => {
   try {
     const financialYear = getCurrentFinancialYear();
-
+    console.log("organization Id", organizationId);
     // Use a transaction to ensure atomicity
     const newInvoiceNumber = await prisma.$transaction(async (tx) => {
       // Get organization details within the transaction
@@ -457,6 +456,16 @@ export const createQuotation = async (req, res) => {
     });
   }
 };
+export const getInvoiceReference = async (id) => {
+  if (!id) return null;
+
+  const bill = await prisma.bills.findUnique({
+    where: { id }, // must specify the model
+    select: { invoice_number: true },
+  });
+
+  return bill?.invoice_number ?? null;
+};
 
 export const getInvoices = async (req, res) => {
   try {
@@ -503,6 +512,7 @@ export const getInvoices = async (req, res) => {
         invoice_date: true,
         grand_total: true,
         status: true,
+        invoice_reference: true,
         bill_to_text: true,
         bill_type: true,
         clients: {
@@ -526,33 +536,52 @@ export const getInvoices = async (req, res) => {
       take: take,
     });
 
+    //console.log("dev saini ", bills);
     // Get total count for pagination
     const totalCount = await prisma.bills.count({
       where: whereClause,
     });
 
-    // Transform data to match requirements
-    console.log("bills sid", bills);
-    const transformedBills = bills.map((bill) => ({
-      invoice_id: bill.id,
-      invoice_number: bill.invoice_number,
-      invoice_date: bill.invoice_date,
-      client_name: bill.clients.first_name,
-      bill_to: bill.bill_to_text,
-      bill_type: bill.bill_type,
-      client_email: bill.clients.email,
-      number_of_services: bill.bill_line_items.length,
-      final_amount: bill.grand_total,
-      status: bill.status,
-    }));
+    // const transformedBills = bills.map((bill) => ({
+    //   invoice_id: bill.id,
+    //   invoice_number: bill.invoice_number,
+    //   invoice_date: bill.invoice_date,
+    //   client_name: bill.clients.first_name,
+    //   bill_to: bill.bill_to_text,
+    //   bill_type: bill.bill_type,
+    //   client_email: bill.clients.email,
+    //   number_of_services: bill.bill_line_items.length,
+    //   final_amount: bill.grand_total,
+    //   status: bill.status,
+    //   invoice_reference: getInvoiceReference(bill.invoice_reference),
+    // }));
+
+    const transformedBills = await Promise.all(
+      bills.map(async (bill) => ({
+        invoice_id: bill.id,
+        invoice_number: bill.invoice_number,
+        invoice_date: bill.invoice_date,
+        client_name: bill.clients.first_name,
+        bill_to: bill.bill_to_text,
+        bill_type: bill.bill_type,
+        client_email: bill.clients.email,
+        number_of_services: bill.bill_line_items.length,
+        final_amount: bill.grand_total,
+        status: bill.status,
+        invoice_reference: bill.invoice_reference
+          ? await getInvoiceReference(bill.invoice_reference)
+          : null,
+      }))
+    );
 
     // Calculate pagination info
     const totalPages = Math.ceil(totalCount / take);
     const hasNextPage = parseInt(page) < totalPages;
     const hasPreviousPage = parseInt(page) > 1;
-
+    console.log("prerit4>> ", transformedBills);
     res.json({
       success: true,
+      //data: transformedBills,
       data: transformedBills,
       pagination: {
         current_page: parseInt(page),
@@ -568,6 +597,97 @@ export const getInvoices = async (req, res) => {
     res.status(500).json({
       error: "Internal server error",
       message: error.message,
+    });
+  }
+};
+export const saveAsInvoices = async (req, res) => {
+  const { id, orgId } = req.query; // quotation id
+  console.log("SIddhant ", id, orgId);
+  try {
+    const invoiceNumber = await generateInvoiceNumber(orgId);
+    const result = await prisma.$transaction(async (tx) => {
+      const quotation = await tx.bills.findUnique({
+        where: { id },
+        include: { bill_line_items: true },
+      });
+
+      if (!quotation) {
+        throw new Error("Quotation not found");
+      }
+
+      const newInvoice = await tx.bills.create({
+        data: {
+          invoice_number: invoiceNumber,
+          organization_id: quotation.organization_id,
+          client_id: quotation.client_id,
+          discount_percentage: quotation.discount_percentage,
+          is_valid: true,
+          bill_type: "INVOICE",
+          bill_from_text: quotation.bill_from_text,
+          bill_to_text: quotation.bill_to_text,
+          discount_amount: quotation.discount_amount,
+          due_date: quotation.due_date,
+          grand_total: quotation.grand_total,
+          grand_total_before_rounding: quotation.grand_total_before_rounding,
+          invoice_date: new Date(), // 👈 or quotation.invoice_date
+          notes: quotation.notes,
+          round_off_amount: quotation.round_off_amount,
+          round_off_enabled: quotation.round_off_enabled,
+          shipping_charges: quotation.shipping_charges,
+          status: "SUBMITTED", // 👈 or "issued"
+          sub_total: quotation.sub_total,
+          taxable_after_discount: quotation.taxable_after_discount,
+          terms: quotation.terms,
+          total_cgst: quotation.total_cgst,
+          total_igst: quotation.total_igst,
+          total_sgst: quotation.total_sgst,
+          total_tax: quotation.total_tax,
+        },
+      });
+
+      if (quotation.bill_line_items.length > 0) {
+        const newLineItems = quotation.bill_line_items.map((item) => ({
+          bill_id: newInvoice.id,
+          service_id: item.service_id,
+          quantity: item.quantity,
+          amount: item.amount,
+          cgst_amount: item.cgst_amount,
+          description: item.description,
+          final_amount: item.final_amount,
+          gst_percentage: item.gst_percentage,
+          igst_amount: item.igst_amount,
+          line_discount_share: item.line_discount_share,
+          rate: item.rate,
+          service_name: item.service_name,
+          sgst_amount: item.sgst_amount,
+          taxable_amount: item.taxable_amount,
+          total_tax_amount: item.total_tax_amount,
+        }));
+
+        await tx.bill_line_items.createMany({
+          data: newLineItems,
+        });
+      }
+
+      await tx.bills.update({
+        where: { id: quotation.id },
+        data: {
+          invoice_reference: newInvoice.id,
+        },
+      });
+
+      return newInvoice;
+    });
+
+    res.status(201).json({
+      success: true,
+      invoice: result,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      success: false,
+      message: err.message || "Error converting quotation",
     });
   }
 };
