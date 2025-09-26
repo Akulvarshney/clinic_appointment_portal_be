@@ -530,31 +530,15 @@ export const getInvoices = async (req, res) => {
         },
       },
       orderBy: {
-        invoice_date: "desc",
+        created_at: "desc",
       },
       skip: skip,
       take: take,
     });
 
-    //console.log("dev saini ", bills);
-    // Get total count for pagination
     const totalCount = await prisma.bills.count({
       where: whereClause,
     });
-
-    // const transformedBills = bills.map((bill) => ({
-    //   invoice_id: bill.id,
-    //   invoice_number: bill.invoice_number,
-    //   invoice_date: bill.invoice_date,
-    //   client_name: bill.clients.first_name,
-    //   bill_to: bill.bill_to_text,
-    //   bill_type: bill.bill_type,
-    //   client_email: bill.clients.email,
-    //   number_of_services: bill.bill_line_items.length,
-    //   final_amount: bill.grand_total,
-    //   status: bill.status,
-    //   invoice_reference: getInvoiceReference(bill.invoice_reference),
-    // }));
 
     const transformedBills = await Promise.all(
       bills.map(async (bill) => ({

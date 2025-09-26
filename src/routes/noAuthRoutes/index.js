@@ -6,5 +6,6 @@ const router = Router();
 
 router.use("/auth", authRoutes);
 router.use("/newApplication", newApplicationRoute);
+router.use("/schedulerJob", newApplicationRoute);
 
 export default router;

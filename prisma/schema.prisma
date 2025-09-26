@@ -452,6 +452,11 @@ model bill_line_items {
   services            services @relation(fields: [service_id], references: [id], onDelete: NoAction)
 }
 
+model scheduler_job_dtl {
+  sno          Int      @id
+  run_datetime String
+}
+
 enum ApplicationStatus {
   PENDING
   APPROVED

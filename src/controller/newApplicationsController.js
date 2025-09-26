@@ -5,6 +5,7 @@ import {
   getStatusList,
   NewApplicationActionService,
   checkShortNameService,
+  runSchedulerJobService,
 } from "../services/newApplicationService.js";
 import { sendEmail } from "../util/sendMail.js";
 import { sendTrackingTemplate } from "../util/emailTemplates.js";
@@ -177,5 +178,16 @@ export const checkShortNameController = async (req, res) => {
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: error.message });
+  }
+};
+
+export const updateSchedulerRun = async (req, res) => {
+  try {
+    const response = await runSchedulerJobService();
+    console.log("returng 6");
+    res.status(200).json({ success: true, data: response });
+  } catch (err) {
+    console.log("Error in running Scheduler API");
+    res.status(500).json({ message: err.message });
   }
 };

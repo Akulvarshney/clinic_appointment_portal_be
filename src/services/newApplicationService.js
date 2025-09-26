@@ -1,6 +1,7 @@
 import { response } from "express";
 import Prisma from "../prisma.js";
 import { hashPassword } from "../util/password.js";
+import { DateTime } from "luxon";
 import {
   rejectApplicationTemplate,
   sendApproveApplicationTemplate,
@@ -320,5 +321,66 @@ export const checkShortNameService = async (shortName) => {
     throw new Error("Organization short name already exists");
   } else {
     return "1";
+  }
+};
+
+export const runSchedulerJobService = async () => {
+  try {
+    var nowIST = DateTime.now()
+      .setZone("Asia/Kolkata")
+      .toFormat("yyyy-LL-dd HH:mm:ss");
+    console.log("Current IST datetime:", nowIST);
+
+    var startOfDayIST = DateTime.now()
+      .setZone("Asia/Kolkata")
+      .startOf("day")
+      .toFormat("yyyy-LL-dd HH:mm:ss");
+
+    console.log("startOfDayIST ", startOfDayIST);
+
+    var endOfDayIST = DateTime.now()
+      .setZone("Asia/Kolkata")
+      .endOf("day")
+      .toFormat("yyyy-LL-dd HH:mm:ss");
+
+    const result = await Prisma.$transaction(async (tx) => {
+      const existing = await tx.scheduler_job_dtl.findFirst({
+        where: {
+          run_datetime: {
+            gte: startOfDayIST,
+            lte: endOfDayIST,
+          },
+        },
+      });
+
+      if (!existing) {
+        // New day → truncate table
+        await tx.$executeRawUnsafe(
+          `TRUNCATE TABLE "scheduler_job_dtl" RESTART IDENTITY CASCADE`
+        );
+      }
+
+      // Get max sno
+      const lastRow = await tx.scheduler_job_dtl.findFirst({
+        orderBy: { sno: "desc" },
+        select: { sno: true },
+      });
+
+      const nextSno = lastRow ? lastRow.sno + 1 : 1;
+
+      // Insert new row
+      return await tx.scheduler_job_dtl.create({
+        data: {
+          sno: nextSno,
+          run_datetime: nowIST, // String
+        },
+      });
+    });
+
+    console.log("Inserted record:", result);
+    return result;
+  } catch (error) {
+    console.error("Error running scheduler job:", error);
+    throw error;
   }
 };
