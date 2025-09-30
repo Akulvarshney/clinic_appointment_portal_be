@@ -5,6 +5,7 @@ import usermgmtRoutes from "./usermgmtRoutes.js";
 import dashboardRoutes from "../dashboardRoutes/dashboardRoutes.js";
 import reminderRoutes from "../reminderRoutes/index.js";
 import invoiceRoutes from "./invoiceManagementRoutes.js";
+import receiptRoutes from "./receiptManagementRoutes.js";
 
 const router = Router();
 
@@ -14,5 +15,6 @@ router.use("/serviceManagement", serviceManagement);
 router.use("/getDashboardDetails", dashboardRoutes);
 router.use("/reminderManagement", reminderRoutes);
 router.use("/invoices", invoiceRoutes);
+router.use("/receipts", receiptRoutes);
 
 export default router;
