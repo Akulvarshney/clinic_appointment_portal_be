@@ -85,11 +85,13 @@ export const generateInvoicePdf = async (req, res) => {
       }
     }
 
+    const typeOFBill = bill.bill_type === "INVOICE" ? "INVOICE" : "QUOTATION";
+
     // === Invoice Title ===
     doc
       .fontSize(20)
       .font(baseFont + "-Bold") // Note: You may need NotoSans-Bold.ttf for bold
-      .text("INVOICE", { align: "center" });
+      .text(typeOFBill, { align: "center" });
     doc.moveDown(1);
 
     // For bold text without separate bold font, use .font(baseFont) and simulate with weight if needed
@@ -315,15 +317,14 @@ export const generateThermalInvoicePdf = async (req, res) => {
 
     if (!bill) return res.status(404).json({ error: "Bill not found" });
 
+    // === PDF INIT (big height, buffered) ===
     const doc = new PDFDocument({
-      size: [226, 3000], // Initial large height, will be trimmed later
-      margins: { top: 10, bottom: 10, left: 8, right: 8 },
-      autoFirstPage: false, // We'll add the page manually to control height
+      autoFirstPage: false,
+      bufferPages: true,
     });
 
-    // Add first page with temporary large height
     doc.addPage({
-      size: [226, 800],
+      size: [226, 1000], // very tall page initially
       margins: { top: 10, bottom: 10, left: 8, right: 8 },
     });
 
@@ -340,6 +341,7 @@ export const generateThermalInvoicePdf = async (req, res) => {
     );
     doc.pipe(res);
 
+    // === Helpers ===
     const printLine = (label, value, options = {}) => {
       const y = doc.y;
       doc
@@ -368,8 +370,10 @@ export const generateThermalInvoicePdf = async (req, res) => {
       doc.moveDown(0.2);
     };
 
+    const typeOFBill = bill.bill_type === "INVOICE" ? "INVOICE" : "QUOTATION";
+
     // === Header ===
-    doc.font(`${baseFont}-Bold`).fontSize(18).text("INVOICE", 8, doc.y, {
+    doc.font(`${baseFont}-Bold`).fontSize(18).text(typeOFBill, 8, doc.y, {
       align: "center",
       width: 210,
     });
@@ -419,7 +423,6 @@ export const generateThermalInvoicePdf = async (req, res) => {
       drawDashedLine();
       doc.moveDown(0.1);
       doc.font(`${baseFont}-Bold`).fontSize(8).text("BILL FROM:", 8, doc.y, {
-        underline: false,
         align: "left",
         width: 210,
       });
@@ -436,7 +439,6 @@ export const generateThermalInvoicePdf = async (req, res) => {
       drawDashedLine();
       doc.moveDown(0.1);
       doc.font(`${baseFont}-Bold`).fontSize(8).text("BILL TO:", 8, doc.y, {
-        underline: false,
         align: "left",
         width: 210,
       });
@@ -448,52 +450,82 @@ export const generateThermalInvoicePdf = async (req, res) => {
       doc.moveDown(0.3);
     }
 
+    // === Tax Type ===
+    const isIntraState =
+      (bill.total_cgst && parseFloat(bill.total_cgst) > 0) ||
+      (bill.total_sgst && parseFloat(bill.total_sgst) > 0);
+
     // === Line Items ===
     drawLine();
     doc.moveDown(0.2);
 
-    // Table headers with proper alignment
-    const headerY = doc.y;
-    doc.font(`${baseFont}-Bold`).fontSize(8);
-    doc.text("Item", 8, headerY, { width: 98 });
-    doc.text("Qty", 106, headerY, { width: 24, align: "center" });
-    doc.text("Price", 130, headerY, { width: 40, align: "right" });
-    doc.text("Amt", 170, headerY, { width: 48, align: "right" });
-
-    doc.moveDown(0.2);
-    drawDashedLine();
-
-    // Line items
     bill.bill_line_items.forEach((item, index) => {
-      const itemY = doc.y;
+      const lineNumber = index + 1;
       const desc = item.service_name || item.description || "Item";
-      const qty = item.quantity || 1;
-      const rate = withRupee(item.rate);
-      const gst = item.gst_percentage || "";
-      const total = withRupee(item.final_amount);
+
+      doc
+        .font(`${baseFont}-Bold`)
+        .fontSize(8)
+        .text(`${lineNumber}) ${desc}`, 8, doc.y, {
+          width: 210,
+          lineBreak: true,
+        });
 
       doc.font(baseFont).fontSize(7);
 
-      // Item name (wrapped if needed)
-      doc.text(desc, 8, itemY, { width: 93, lineBreak: true });
+      const printDetail = (label, value) => {
+        if (value && value !== "0" && value !== "0.00") {
+          doc.text(`${label}: ${value}`, 20, doc.y, { width: 200 });
+        }
+      };
 
-      // Get the height after text wrapping
-      const currentY = doc.y;
+      printDetail("Qty", item.quantity || 1);
+      printDetail("Rate", withRupee(item.rate));
 
-      // Quantity (centered)
-      doc.text(qty.toString(), 106, itemY, { width: 24, align: "center" });
+      if (
+        item.line_discount_share &&
+        parseFloat(item.line_discount_share) > 0
+      ) {
+        const discPerc = item.discount_percentage
+          ? ` (${item.discount_percentage}%)`
+          : "";
+        printDetail(`Disc${discPerc}`, withRupee(item.line_discount_share));
+      }
 
-      // Rate (right aligned)
-      doc.text(rate, 110, itemY, { width: 40, align: "right" });
+      if (item.taxable_amount) {
+        printDetail("Taxable", withRupee(item.taxable_amount));
+      }
 
-      doc.text(gst, 120, itemY, { width: 40, align: "right" });
+      if (isIntraState) {
+        if (item.cgst_amount && parseFloat(item.cgst_amount) > 0) {
+          const cgstPerc = item.gst_percentage
+            ? ` (${item.gst_percentage / 2}%)`
+            : "";
+          printDetail(`CGST${cgstPerc}`, withRupee(item.cgst_amount));
+        }
+        if (item.sgst_amount && parseFloat(item.sgst_amount) > 0) {
+          const sgstPerc = item.gst_percentage
+            ? ` (${item.gst_percentage / 2}%)`
+            : "";
+          printDetail(`SGST${sgstPerc}`, withRupee(item.sgst_amount));
+        }
+      } else {
+        if (item.igst_amount && parseFloat(item.igst_amount) > 0) {
+          const igstPerc = item.gst_percentage
+            ? ` (${item.gst_percentage}%)`
+            : "";
+          printDetail(`IGST${igstPerc}`, withRupee(item.igst_amount));
+        }
+      }
 
-      // Total (right aligned)
-      doc.text(total, 170, itemY, { width: 48, align: "right" });
+      printDetail("Total", withRupee(item.final_amount));
 
-      // Move to the bottom of the tallest column
-      doc.y = currentY;
       doc.moveDown(0.3);
+
+      if (index < bill.bill_line_items.length - 1) {
+        drawDashedLine();
+        doc.moveDown(0.2);
+      }
     });
 
     drawLine();
@@ -513,8 +545,17 @@ export const generateThermalInvoicePdf = async (req, res) => {
       printLine("Taxable:", withRupee(bill.taxable_after_discount));
     }
 
-    if (bill.total_tax && bill.total_tax !== "0") {
-      printLine("Tax:", withRupee(bill.total_tax));
+    if (isIntraState) {
+      if (bill.total_cgst && parseFloat(bill.total_cgst) > 0) {
+        printLine("CGST:", withRupee(bill.total_cgst));
+      }
+      if (bill.total_sgst && parseFloat(bill.total_sgst) > 0) {
+        printLine("SGST:", withRupee(bill.total_sgst));
+      }
+    } else {
+      if (bill.total_igst && parseFloat(bill.total_igst) > 0) {
+        printLine("IGST:", withRupee(bill.total_igst));
+      }
     }
 
     if (bill.shipping_charges && bill.shipping_charges !== "0") {
@@ -533,10 +574,12 @@ export const generateThermalInvoicePdf = async (req, res) => {
     drawLine();
     doc.moveDown(0.2);
 
-    // Grand total - with bold styling
+    // Grand total
     const totalY = doc.y;
-    doc.font(`${baseFont}-Bold`).fontSize(10);
-    doc.text("GRAND TOTAL", 8, totalY, { width: 120 });
+    doc
+      .font(`${baseFont}-Bold`)
+      .fontSize(10)
+      .text("GRAND TOTAL", 8, totalY, { width: 120 });
     doc.fontSize(12).text(withRupee(bill.grand_total), 130, totalY, {
       align: "right",
       width: 88,
@@ -559,20 +602,18 @@ export const generateThermalInvoicePdf = async (req, res) => {
       align: "center",
       width: 210,
     });
-
     doc.moveDown(0.3);
 
-    // Closing pattern (decorative)
-    const decorY = doc.y;
-    doc.fontSize(8).text("* * * * * * * * * * * *", 8, decorY, {
+    doc.fontSize(8).text("* * * * * * * * * * * *", 8, doc.y, {
       align: "center",
       width: 210,
     });
 
-    // Capture final height and adjust page size
-    const finalHeight = doc.y + 30; // Add bottom margin
-    doc.page.size = [226, finalHeight];
+    // === Resize dynamically ===
+    const usedHeight = doc.y + 40; // add padding
+    doc.page.size = [226, usedHeight];
 
+    // End stream
     doc.end();
   } catch (error) {
     console.error("Thermal PDF Error:", error);
