@@ -417,6 +417,7 @@ model bills {
   sub_total                   Decimal           @db.Decimal(12, 2)
   taxable_after_discount      Decimal           @db.Decimal(12, 2)
   terms                       String?
+  pdf_base64                  String?           @db.Text
   total_cgst                  Decimal           @default(0) @db.Decimal(12, 2)
   total_igst                  Decimal           @default(0) @db.Decimal(12, 2)
   total_sgst                  Decimal           @default(0) @db.Decimal(12, 2)
@@ -453,7 +454,7 @@ model bill_line_items {
 }
 
 model scheduler_job_dtl {
-  sno          Int      @id
+  sno          Int    @id
   run_datetime String
 }
 
