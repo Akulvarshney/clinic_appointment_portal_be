@@ -419,13 +419,11 @@ model bills {
   sub_total                   Decimal           @db.Decimal(12, 2)
   taxable_after_discount      Decimal           @db.Decimal(12, 2)
   terms                       String?
-  pdf_base64                  String?           @db.Text
   total_cgst                  Decimal           @default(0) @db.Decimal(12, 2)
   total_igst                  Decimal           @default(0) @db.Decimal(12, 2)
   total_sgst                  Decimal           @default(0) @db.Decimal(12, 2)
   total_tax                   Decimal           @default(0) @db.Decimal(12, 2)
   invoice_reference           String?           @db.Uuid
-  pdf_base64                  String?
   bill_line_items             bill_line_items[]
   clients                     clients           @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   organizations               organizations     @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -476,12 +474,12 @@ model receipt_bill_line_items {
 model receipts {
   id                      String                    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   receipt_id              String                    @db.VarChar(50)
-  organization_id         String                    @db.Uuid
   client_id               String                    @db.Uuid
   amount                  Decimal                   @db.Decimal(12, 2)
   is_valid                Boolean                   @default(true)
   created_at              DateTime                  @default(now()) @db.Timestamptz(6)
   updated_at              DateTime                  @default(now()) @db.Timestamptz(6)
+  organization_id         String                    @db.Uuid
   receipt_bill_line_items receipt_bill_line_items[]
   clients                 clients                   @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_receipts_client")
 }
