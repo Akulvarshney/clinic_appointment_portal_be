@@ -7,12 +7,17 @@ import appointmentRoutes from "./appointmentRoutes/index.js";
 import { loginMiddleware } from "../middleware/authMiddleware.js";
 import {
   generateInvoicePdf,
+  generateReceiptPdf,
   generateThermalInvoicePdf,
+  generateThermalReceiptPdf,
 } from "../controller/invoicePdfGeneratorController.js";
 const router = Router();
 
 router.get("/invoice/:billId", generateInvoicePdf);
 router.get("/invoice2/:billId", generateThermalInvoicePdf);
+
+router.get("/receipt/:receiptId", generateReceiptPdf);
+router.get("/receipt2/:receiptId", generateThermalReceiptPdf);
 
 router.use("/noAuth", noauthRoutes);
 router.use("/clientadmin", loginMiddleware, clientadmin);

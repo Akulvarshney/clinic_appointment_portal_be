@@ -622,3 +622,572 @@ export const generateThermalInvoicePdf = async (req, res) => {
     }
   }
 };
+
+export const generateReceiptPdf = async (req, res) => {
+  const { receiptId } = req.params;
+  if (!receiptId) {
+    return res.status(400).json({ error: "Receipt ID is required" });
+  }
+
+  try {
+    const receipt = await prisma.receipts.findUnique({
+      where: { id: receiptId },
+      include: {
+        receipt_bill_line_items: {
+          include: { services: true },
+        },
+        clients: true,
+      },
+    });
+
+    if (!receipt) {
+      return res.status(404).json({ error: "Receipt not found" });
+    }
+
+    const organization = await prisma.organizations.findUnique({
+      where: { id: receipt.organization_id },
+    });
+
+    if (!organization) {
+      return res.status(404).json({ error: "Organization not found" });
+    }
+
+    const doc = new PDFDocument({
+      size: "A4",
+      margins: { top: 60, bottom: 60, left: 50, right: 50 },
+    });
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `inline; filename=receipt_${receipt.receipt_id}.pdf`
+    );
+    doc.pipe(res);
+
+    const leftMargin = 50;
+    const pageWidth = doc.page.width;
+    const usableWidth = pageWidth - leftMargin - 50;
+
+    // === ORGANIZATION HEADER ===
+    const orgName =
+      organization.company_name || organization.name || "Organization";
+    doc.fontSize(20).font("Helvetica-Bold").text(orgName, { align: "center" });
+    doc.moveDown(0.2);
+
+    const orgDetails = [
+      organization.billing_address,
+      organization.billing_phone ? `📞 ${organization.billing_phone}` : "",
+      organization.billing_email ? `✉️ ${organization.billing_email}` : "",
+      organization.gstnumber ? `GSTIN: ${organization.gstnumber}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    if (orgDetails) {
+      doc.fontSize(9).font("Helvetica").text(orgDetails, { align: "center" });
+    }
+    doc.moveDown(1.2);
+
+    // === RECEIPT TITLE & INFO ===
+    doc
+      .fontSize(16)
+      .font("Helvetica-Bold")
+      .text("OFFICIAL PAYMENT RECEIPT", { align: "center" });
+    doc.moveDown(0.8);
+
+    doc.fontSize(10).font("Helvetica");
+    doc.text(`Receipt No: ${receipt.receipt_id}`, { align: "right" });
+    doc.text(`Date & Time: ${formatDate(receipt.created_at)}`, {
+      align: "right",
+    });
+    doc.text(`Status: ${receipt.is_valid ? "PAID" : "VOID"}`, {
+      align: "right",
+    });
+    doc.moveDown(1.5);
+
+    // === CLIENT SECTION ===
+    doc
+      .fontSize(11)
+      .font("Helvetica-Bold")
+      .text("Received With Thanks From:", leftMargin, doc.y);
+    doc.moveDown(0.3);
+
+    const clientName =
+      [receipt.clients.first_name, receipt.clients.last_name]
+        .filter(Boolean)
+        .join(" ") || "N/A";
+
+    doc.fontSize(10).font("Helvetica");
+    doc.text(clientName, leftMargin, doc.y);
+    let clientY = doc.y + 14;
+    if (receipt.clients.email) {
+      doc.text(`Email: ${receipt.clients.email}`, leftMargin, clientY);
+      clientY += 14;
+    }
+    if (receipt.clients.phone) {
+      doc.text(`Mobile: ${receipt.clients.phone}`, leftMargin, clientY);
+      clientY += 14;
+    }
+    if (receipt.clients.address) {
+      doc.text(`Address: ${receipt.clients.address}`, leftMargin, clientY);
+    }
+
+    doc.moveDown(1.8); // Reduced from 2.5
+
+    // === LINE ITEMS TABLE ===
+    const cols = [
+      { label: "Particulars", width: 0.45, key: "service_name" },
+      { label: "Qty", width: 0.1, key: "quantity", align: "center" },
+      { label: "Rate (₹)", width: 0.2, key: "price", align: "right" },
+      { label: "Amount (₹)", width: 0.25, key: "total", align: "right" },
+    ];
+
+    const colWidths = cols.map((col) => col.width * usableWidth);
+    let y = doc.y;
+
+    // Table Header
+    doc.fontSize(9).font("Helvetica-Bold");
+    let x = leftMargin;
+    cols.forEach((col, i) => {
+      doc.text(col.label, x, y, {
+        width: colWidths[i],
+        align: col.align || "left",
+      });
+      x += colWidths[i];
+    });
+    y += 18;
+
+    // Separator line
+    doc
+      .moveTo(leftMargin, y)
+      .lineTo(leftMargin + usableWidth, y)
+      .stroke();
+    y += 8;
+
+    // Data Rows
+    doc.fontSize(9).font("Helvetica");
+    receipt.receipt_bill_line_items.forEach((item) => {
+      const price = item.services?.price ? parseFloat(item.services.price) : 0;
+      const qty = parseFloat(item.quantity);
+      const total = qty * price;
+
+      x = leftMargin;
+      cols.forEach((col, i) => {
+        let value = "";
+        if (col.key === "service_name") {
+          value = item.service_name || item.services?.name || "Service";
+        } else if (col.key === "quantity") {
+          value = qty.toFixed(3);
+        } else if (col.key === "price") {
+          value = price.toFixed(2);
+        } else if (col.key === "total") {
+          value = total.toFixed(2);
+        }
+
+        doc.text(value, x, y, {
+          width: colWidths[i],
+          align: col.align || "left",
+        });
+        x += colWidths[i];
+      });
+      y += 20;
+    });
+
+    // === TOTAL AMOUNT BOX (positioned absolutely) ===
+    const totalBoxY = y + 15;
+    const totalBoxWidth = 220;
+    const totalBoxX = pageWidth - totalBoxWidth - 50;
+
+    doc
+      .roundedRect(totalBoxX, totalBoxY, totalBoxWidth, 50, 5)
+      .strokeColor("#000")
+      .lineWidth(1)
+      .stroke();
+
+    doc.fontSize(11).font("Helvetica-Bold");
+    doc.text("TOTAL AMOUNT", totalBoxX + 15, totalBoxY + 12);
+    doc.fontSize(14).font("Helvetica-Bold");
+    doc.text(withRupee(receipt.amount), totalBoxX + 15, totalBoxY + 28);
+
+    // === FOOTER SECTION (absolute positioning to prevent page break) ===
+    const footerStartY = totalBoxY + 80;
+
+    // Payment acknowledgment
+    doc.fontSize(10).font("Helvetica");
+    doc.text(
+      "This is to certify that the above-mentioned amount has been received in full satisfaction of the services rendered.",
+      leftMargin,
+      footerStartY,
+      { width: usableWidth, align: "center" }
+    );
+
+    doc.text(
+      "This receipt is valid without signature only if issued electronically through our official system.",
+      leftMargin,
+      footerStartY + 22,
+      { width: usableWidth, align: "center" }
+    );
+
+    // Authorized stamp
+    const stampY = footerStartY + 60;
+    const stampWidth = 200;
+    const stampX = (pageWidth - stampWidth) / 2;
+
+    doc.fontSize(9).font("Helvetica-Bold");
+    doc.text("FOR & ON BEHALF OF", stampX, stampY, {
+      width: stampWidth,
+      align: "center",
+    });
+
+    doc.fontSize(10).font("Helvetica-Bold");
+    doc.text(orgName, stampX, stampY + 12, {
+      width: stampWidth,
+      align: "center",
+    });
+
+    // Signature line
+    const lineY = stampY + 28;
+    doc
+      .moveTo(stampX, lineY)
+      .lineTo(stampX + stampWidth, lineY)
+      .dash(2, { space: 2 })
+      .stroke()
+      .undash();
+
+    doc.fontSize(9).font("Helvetica");
+    doc.text("Authorized Signatory", stampX, lineY + 5, {
+      width: stampWidth,
+      align: "center",
+    });
+    doc.moveDown(2);
+    const footerText =
+      "This is a system-generated receipt. No signature required.";
+    doc.text(footerText, stampX + 5, lineY + 20, {
+      width: stampWidth,
+      align: "center",
+    });
+
+    // Fixed bottom footer note
+    // doc.fontSize(8).font("Helvetica").fillColor("#666");
+    // const footerText =
+    //   "This is a system-generated receipt. No signature required.";
+    // doc.text(footerText, 0, doc.page.height - 50, {
+    //   width: pageWidth,
+    //   align: "center",
+    // });
+
+    doc.end();
+  } catch (error) {
+    console.error("Receipt PDF Generation Error:", error);
+    res.status(500).json({ error: "Failed to generate receipt PDF" });
+  }
+};
+
+export const generateThermalReceiptPdf = async (req, res) => {
+  const { receiptId } = req.params;
+  if (!receiptId) {
+    return res.status(400).json({ error: "Receipt ID is required" });
+  }
+
+  try {
+    const receipt = await prisma.receipts.findUnique({
+      where: { id: receiptId },
+      include: {
+        receipt_bill_line_items: {
+          include: { services: true },
+        },
+        clients: true,
+      },
+    });
+
+    if (!receipt) {
+      return res.status(404).json({ error: "Receipt not found" });
+    }
+
+    const organization = await prisma.organizations.findUnique({
+      where: { id: receipt.organization_id },
+    });
+
+    if (!organization) {
+      return res.status(404).json({ error: "Organization not found" });
+    }
+
+    // Thermal paper: 80mm = ~226 points at 72 DPI
+    const doc = new PDFDocument({
+      size: [226, 842], // Dynamic height, will adjust
+      margins: { top: 10, bottom: 10, left: 10, right: 10 },
+    });
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `inline; filename=thermal_receipt_${receipt.receipt_id}.pdf`
+    );
+    doc.pipe(res);
+
+    const maxWidth = 206; // Usable width (226 - 20 margins)
+    const divider = "=".repeat(42);
+    const thinDivider = "-".repeat(42);
+
+    // === ORGANIZATION HEADER ===
+    const orgName = (
+      organization.company_name ||
+      organization.name ||
+      "ORGANIZATION"
+    ).toUpperCase();
+
+    doc.font("Courier-Bold").fontSize(11).text(orgName, { align: "center" });
+    doc.moveDown(0.3);
+
+    // Organization details
+    if (organization.billing_address) {
+      doc
+        .font("Courier")
+        .fontSize(7)
+        .text(wrapText(organization.billing_address, 38), { align: "center" });
+      doc.moveDown(0.2);
+    }
+
+    const contactInfo = [];
+    if (organization.billing_phone) {
+      contactInfo.push(`Ph: ${organization.billing_phone}`);
+    }
+    if (organization.billing_email) {
+      contactInfo.push(`Email: ${organization.billing_email}`);
+    }
+
+    if (contactInfo.length) {
+      doc.font("Courier").fontSize(7);
+      contactInfo.forEach((info) => {
+        doc.text(info, { align: "center" });
+      });
+      doc.moveDown(0.2);
+    }
+
+    if (organization.gstnumber) {
+      doc
+        .font("Courier")
+        .fontSize(7)
+        .text(`GSTIN: ${organization.gstnumber}`, { align: "center" });
+      doc.moveDown(0.2);
+    }
+
+    // === MAIN DIVIDER ===
+    doc.font("Courier").fontSize(8).text(divider, { align: "center" });
+    doc.moveDown(0.3);
+
+    // === RECEIPT TITLE ===
+    doc
+      .font("Courier-Bold")
+      .fontSize(10)
+      .text("OFFICIAL PAYMENT RECEIPT", { align: "center" });
+    doc.moveDown(0.3);
+
+    doc.font("Courier").fontSize(8).text(thinDivider, { align: "center" });
+    doc.moveDown(0.4);
+
+    // === RECEIPT INFORMATION ===
+    doc.font("Courier").fontSize(8);
+    doc.text(`Receipt No  : ${receipt.receipt_id}`);
+    doc.text(`Date & Time : ${formatDate(receipt.created_at)}`);
+    doc.text(`Status      : ${receipt.is_valid ? "PAID" : "VOID"}`);
+    doc.moveDown(0.5);
+
+    // === CLIENT INFORMATION ===
+    doc.font("Courier-Bold").fontSize(8).text("RECEIVED WITH THANKS FROM:");
+    doc.moveDown(0.2);
+
+    const clientName =
+      [receipt.clients.first_name, receipt.clients.last_name]
+        .filter(Boolean)
+        .join(" ") || "N/A";
+
+    doc.font("Courier").fontSize(8);
+    doc.text(`Name    : ${wrapText(clientName, 30)}`);
+
+    if (receipt.clients.email) {
+      doc.text(`Email   : ${wrapText(receipt.clients.email, 30)}`);
+    }
+    if (receipt.clients.phone) {
+      doc.text(`Mobile  : ${receipt.clients.phone}`);
+    }
+    if (receipt.clients.address) {
+      const wrappedAddress = wrapText(receipt.clients.address, 30);
+      const addressLines = wrappedAddress.split("\n");
+      addressLines.forEach((line, idx) => {
+        if (idx === 0) {
+          doc.text(`Address : ${line}`);
+        } else {
+          doc.text(`          ${line}`);
+        }
+      });
+    }
+
+    doc.moveDown(0.5);
+
+    // === LINE ITEMS TABLE ===
+    doc.font("Courier").fontSize(8).text(divider, { align: "center" });
+    doc.moveDown(0.3);
+
+    doc.font("Courier-Bold").fontSize(8).text("PARTICULARS");
+    doc.moveDown(0.2);
+
+    // Table header with proper alignment
+    const headerLine =
+      padRight("Item", 20) +
+      padCenter("Qty", 6) +
+      padLeft("Rate", 8) +
+      padLeft("Amt", 8);
+
+    doc.font("Courier-Bold").fontSize(7).text(headerLine);
+    doc.font("Courier").fontSize(7).text(thinDivider);
+    doc.moveDown(0.1);
+
+    // Line items with proper formatting
+    let subtotal = 0;
+    receipt.receipt_bill_line_items.forEach((item, index) => {
+      const serviceName = item.service_name || item.services?.name || "Service";
+      const qty = parseFloat(item.quantity);
+      const price = item.services?.price ? parseFloat(item.services.price) : 0;
+      const total = qty * price;
+      subtotal += total;
+
+      // Wrap service name if too long
+      const maxServiceNameLen = 20;
+      const wrappedServiceName = wrapText(serviceName, maxServiceNameLen);
+      const serviceLines = wrappedServiceName.split("\n");
+
+      // First line with all details
+      const firstLine =
+        padRight(serviceLines[0], 20) +
+        padCenter(qty.toFixed(3), 6) +
+        padLeft(price.toFixed(2), 8) +
+        padLeft(total.toFixed(2), 8);
+
+      doc.font("Courier").fontSize(7).text(firstLine);
+
+      // Additional lines for wrapped service name (if any)
+      for (let i = 1; i < serviceLines.length; i++) {
+        doc.text(padRight(serviceLines[i], 20));
+      }
+
+      doc.moveDown(0.15);
+    });
+
+    // === TOTALS SECTION ===
+    doc.font("Courier").fontSize(7).text(thinDivider);
+    doc.moveDown(0.3);
+
+    doc.font("Courier-Bold").fontSize(9);
+    const totalLine =
+      padRight("TOTAL AMOUNT:", 22) +
+      padLeft(`₹ ${parseFloat(receipt.amount).toFixed(2)}`, 20);
+    doc.text(totalLine);
+    doc.moveDown(0.3);
+
+    doc.font("Courier").fontSize(8).text(divider, { align: "center" });
+    doc.moveDown(0.5);
+
+    // === PAYMENT ACKNOWLEDGMENT ===
+    doc.font("Courier").fontSize(7);
+    const acknowledgment = wrapText(
+      "This is to certify that the above-mentioned amount has been received in full satisfaction of the services rendered.",
+      42
+    );
+    doc.text(acknowledgment, { align: "center" });
+    doc.moveDown(0.4);
+
+    const validityNote = wrapText(
+      "This receipt is valid without signature as it is electronically generated.",
+      42
+    );
+    doc.text(validityNote, { align: "center" });
+    doc.moveDown(0.5);
+
+    // === AUTHORIZED SIGNATURE ===
+    doc.font("Courier-Bold").fontSize(7);
+    doc.text("FOR & ON BEHALF OF", { align: "center" });
+    doc.font("Courier-Bold").fontSize(8);
+    doc.text(orgName, { align: "center" });
+    doc.moveDown(0.3);
+
+    doc.font("Courier").fontSize(7);
+    doc.text("_______________________", { align: "center" });
+    doc.text("Authorized Signatory", { align: "center" });
+    doc.moveDown(0.5);
+
+    // === FOOTER ===
+    doc.font("Courier").fontSize(6);
+    doc.text("This is a system-generated receipt.", { align: "center" });
+    doc.text("No signature required.", { align: "center" });
+    doc.moveDown(0.3);
+
+    doc.text("Thank you for your payment!", { align: "center" });
+    doc.moveDown(0.2);
+
+    doc.font("Courier").fontSize(8).text(divider, { align: "center" });
+
+    // Finalize
+    doc.end();
+  } catch (error) {
+    console.error("Thermal Receipt PDF Error:", error);
+    res.status(500).json({ error: "Failed to generate thermal receipt PDF" });
+  }
+};
+
+// === ENHANCED HELPER FUNCTIONS ===
+
+/**
+ * Pad string to the right with spaces
+ */
+function padRight(str, len) {
+  str = String(str).substring(0, len); // Truncate if too long
+  return str + " ".repeat(Math.max(0, len - str.length));
+}
+
+/**
+ * Pad string to the left with spaces
+ */
+function padLeft(str, len) {
+  str = String(str).substring(0, len); // Truncate if too long
+  return " ".repeat(Math.max(0, len - str.length)) + str;
+}
+
+/**
+ * Center-align string within given length
+ */
+function padCenter(str, len) {
+  str = String(str).substring(0, len);
+  const totalPadding = Math.max(0, len - str.length);
+  const leftPadding = Math.floor(totalPadding / 2);
+  const rightPadding = totalPadding - leftPadding;
+  return " ".repeat(leftPadding) + str + " ".repeat(rightPadding);
+}
+
+/**
+ * Wrap text to specified width
+ */
+function wrapText(text, maxWidth) {
+  if (!text) return "";
+
+  text = String(text);
+  if (text.length <= maxWidth) return text;
+
+  const words = text.split(" ");
+  const lines = [];
+  let currentLine = "";
+
+  words.forEach((word) => {
+    if ((currentLine + word).length <= maxWidth) {
+      currentLine += (currentLine ? " " : "") + word;
+    } else {
+      if (currentLine) lines.push(currentLine);
+      // If single word is longer than maxWidth, truncate it
+      currentLine =
+        word.length > maxWidth ? word.substring(0, maxWidth - 3) + "..." : word;
+    }
+  });
+
+  if (currentLine) lines.push(currentLine);
+  return lines.join("\n");
+}
