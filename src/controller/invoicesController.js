@@ -489,6 +489,7 @@ export const getInvoices = async (req, res) => {
     const whereClause = {
       organization_id: organization_id,
       is_valid: true,
+      bill_type: bill_type,
     };
 
     if (client_id) {
@@ -535,10 +536,11 @@ export const getInvoices = async (req, res) => {
       skip: skip,
       take: take,
     });
-
+    console.log("bills", bills);
     const totalCount = await prisma.bills.count({
       where: whereClause,
     });
+    console.log("totalCount", totalCount);
 
     const transformedBills = await Promise.all(
       bills.map(async (bill) => ({
