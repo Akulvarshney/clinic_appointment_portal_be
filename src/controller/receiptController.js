@@ -44,6 +44,9 @@ export const saveReceipt = async (req, res) => {
         error: "organization_id, client_id and amount are required",
       });
     }
+    const organization = await prisma.organizations.findUnique({
+      where: { id: organization_id },
+    });
 
     const newReceipt = await prisma.$transaction(async (tx) => {
       const receipt_id = await generateReceiptId(tx, organization_id);
@@ -54,6 +57,7 @@ export const saveReceipt = async (req, res) => {
           organization_id,
           client_id,
           amount,
+          company_name_text: organization.company_name,
           is_valid: true,
           // created_at: new Date(),
           //updated_at: new Date(),

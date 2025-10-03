@@ -231,6 +231,7 @@ export const createInvoice = async (req, res) => {
           round_off_enabled: round_off_enabled === true,
           bill_type,
           status,
+          company_name_text: organization.company_name,
           is_valid: true,
         },
       });
@@ -393,6 +394,7 @@ export const createQuotation = async (req, res) => {
           round_off_enabled: round_off_enabled === true,
           bill_type,
           status,
+          company_name_text: organization.company_name,
           is_valid: true,
         },
       });
