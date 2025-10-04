@@ -155,6 +155,7 @@ export const tabFeatureConfig = [
         feature_name: "Save as Invoice",
       },
       { feature_unique_name: "PRINT_INVOICES", feature_name: "Print Invoices" },
+      { feature_unique_name: "EDIT_QUOTATION", feature_name: "Edit Quotation" },
     ],
   },
   {
