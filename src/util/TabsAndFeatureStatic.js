@@ -141,13 +141,20 @@ export const tabFeatureConfig = [
     tab_name: "Billing",
     tab_path: "/billing",
     features: [
-      { feature_unique_name: "VIEW_BILLS", feature_name: "View Bills" },
+      { feature_unique_name: "VIEW_INVOICE", feature_name: "View Invoice" },
+      { feature_unique_name: "VIEW_QUOTATION", feature_name: "View Quotation" },
+      { feature_unique_name: "VIEW_RECEIPT", feature_name: "View Receipt" },
       { feature_unique_name: "CREATE_INVOICE", feature_name: "Create Invoice" },
       {
         feature_unique_name: "CREATE_QUOTATION",
         feature_name: "Create Quotation",
       },
       { feature_unique_name: "CREATE_RECEIPT", feature_name: "Create Receipt" },
+      {
+        feature_unique_name: "SAVE_AS_INVOICE",
+        feature_name: "Save as Invoice",
+      },
+      { feature_unique_name: "PRINT_INVOICES", feature_name: "Print Invoices" },
     ],
   },
   {

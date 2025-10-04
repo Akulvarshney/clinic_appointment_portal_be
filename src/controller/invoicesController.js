@@ -475,6 +475,7 @@ export const getInvoices = async (req, res) => {
       organization_id,
       client_id,
       status,
+      search,
       bill_type,
       page = 1,
       limit = 10,
@@ -501,9 +502,27 @@ export const getInvoices = async (req, res) => {
     if (status) {
       whereClause.status = status;
     }
+    if (search && search.trim() !== "") {
+      whereClause.OR = [
+        {
+          invoice_number: {
+            contains: search,
+            mode: "insensitive", // case-insensitive search
+          },
+        },
+        {
+          bill_to_text: {
+            contains: search,
+            mode: "insensitive",
+          },
+        },
+      ];
+    }
+    console.log();
 
     // Calculate pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
+    console.log("limit ", page, limit);
     const take = parseInt(limit);
 
     // Fetch bills with related data
@@ -566,7 +585,7 @@ export const getInvoices = async (req, res) => {
     const totalPages = Math.ceil(totalCount / take);
     const hasNextPage = parseInt(page) < totalPages;
     const hasPreviousPage = parseInt(page) > 1;
-    console.log("prerit4>> ", transformedBills);
+    //console.log("prerit4>> ", transformedBills);
     res.json({
       success: true,
       //data: transformedBills,
