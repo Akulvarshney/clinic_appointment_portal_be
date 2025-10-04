@@ -299,6 +299,7 @@ export const createInvoice = async (req, res) => {
 export const createQuotation = async (req, res) => {
   try {
     const {
+      id, // Add id to destructure
       organization_id,
       client_id,
       invoice_date,
@@ -324,6 +325,9 @@ export const createQuotation = async (req, res) => {
       status = "SUBMITTED",
       line_items,
     } = req.body;
+
+    // Check if this is an update operation
+    const isUpdate = !!id;
 
     if (
       !organization_id ||
@@ -363,41 +367,80 @@ export const createQuotation = async (req, res) => {
       });
     }
 
-    const invoiceNumber = await generateQuotationNumber(organization_id);
+    // If updating, validate that the bill exists
+    if (isUpdate) {
+      const existingBill = await prisma.bills.findUnique({
+        where: { id },
+      });
+
+      if (!existingBill) {
+        return res.status(404).json({
+          success: false,
+          message: "Bill not found",
+        });
+      }
+    }
+
+    // Generate invoice number only for new bills
+    const invoiceNumber = isUpdate
+      ? undefined
+      : await generateQuotationNumber(organization_id);
+
+    // Prepare bill data
+    const billData = {
+      organization_id,
+      client_id,
+      invoice_date: new Date(invoice_date),
+      due_date: due_date ? new Date(due_date) : null,
+      sub_total: parseFloat(sub_total),
+      discount_amount: parseFloat(discount_amount) || 0,
+      discount_percentage: parseFloat(discount_percentage) || 0,
+      taxable_after_discount: parseFloat(taxable_after_discount),
+      total_cgst: parseFloat(total_cgst) || 0,
+      total_sgst: parseFloat(total_sgst) || 0,
+      total_igst: parseFloat(total_igst) || 0,
+      total_tax: parseFloat(total_tax) || 0,
+      shipping_charges: parseFloat(shipping_charges) || 0,
+      round_off_amount: parseFloat(round_off_amount) || 0,
+      grand_total_before_rounding: parseFloat(grand_total_before_rounding),
+      grand_total: parseFloat(grand_total),
+      bill_to_text,
+      bill_from_text,
+      notes,
+      terms,
+      round_off_enabled: round_off_enabled === true,
+      bill_type,
+      status,
+      company_name_text: organization.company_name,
+      is_valid: true,
+    };
+
+    // Add invoice_number only for create operation
+    if (!isUpdate) {
+      billData.invoice_number = invoiceNumber;
+    }
 
     // Start transaction
     const result = await prisma.$transaction(async (tx) => {
-      // Create the bill
-      const bill = await tx.bills.create({
-        data: {
-          invoice_number: invoiceNumber,
-          organization_id,
-          client_id,
-          invoice_date: new Date(invoice_date),
-          due_date: due_date ? new Date(due_date) : null,
-          sub_total: parseFloat(sub_total),
-          discount_amount: parseFloat(discount_amount) || 0,
-          discount_percentage: parseFloat(discount_percentage) || 0,
-          taxable_after_discount: parseFloat(taxable_after_discount),
-          total_cgst: parseFloat(total_cgst) || 0,
-          total_sgst: parseFloat(total_sgst) || 0,
-          total_igst: parseFloat(total_igst) || 0,
-          total_tax: parseFloat(total_tax) || 0,
-          shipping_charges: parseFloat(shipping_charges) || 0,
-          round_off_amount: parseFloat(round_off_amount) || 0,
-          grand_total_before_rounding: parseFloat(grand_total_before_rounding),
-          grand_total: parseFloat(grand_total),
-          bill_to_text,
-          bill_from_text,
-          notes,
-          terms,
-          round_off_enabled: round_off_enabled === true,
-          bill_type,
-          status,
-          company_name_text: organization.company_name,
-          is_valid: true,
-        },
-      });
+      let bill;
+
+      if (isUpdate) {
+        // Update existing bill
+        bill = await tx.bills.update({
+          where: { id },
+          data: billData,
+        });
+
+        // Delete existing line items
+        await tx.bill_line_items.deleteMany({
+          where: { bill_id: id },
+        });
+      } else {
+        // Create new bill
+        bill = await tx.bills.create({
+          data: billData,
+        });
+      }
 
       // Create line items
       const lineItemsData = line_items.map((item) => ({
@@ -426,9 +469,11 @@ export const createQuotation = async (req, res) => {
     });
 
     // Return success response
-    res.status(201).json({
+    res.status(isUpdate ? 200 : 201).json({
       success: true,
-      message: "Invoice created successfully",
+      message: isUpdate
+        ? "Invoice updated successfully"
+        : "Invoice created successfully",
       data: {
         id: result.id,
         invoice_number: result.invoice_number,
@@ -439,10 +484,11 @@ export const createQuotation = async (req, res) => {
         grand_total: result.grand_total,
         status: result.status,
         created_at: result.created_at,
+        updated_at: result.updated_at,
       },
     });
   } catch (error) {
-    console.error("Error creating invoice:", error);
+    console.error("Error creating/updating invoice:", error);
 
     // Handle specific Prisma errors
     if (error.code === "P2002") {
@@ -454,7 +500,9 @@ export const createQuotation = async (req, res) => {
 
     res.status(500).json({
       success: false,
-      message: error.message || "Internal server error while creating invoice",
+      message:
+        error.message ||
+        "Internal server error while creating/updating invoice",
     });
   }
 };
@@ -695,6 +743,45 @@ export const saveAsInvoices = async (req, res) => {
     res.status(500).json({
       success: false,
       message: err.message || "Error converting quotation",
+    });
+  }
+};
+
+export const getBillById = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    if (
+      !id ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        id
+      )
+    ) {
+      return res.status(400).json({ error: "Invalid bill ID format" });
+    }
+
+    const bill = await prisma.bills.findUnique({
+      where: { id },
+      include: {
+        bill_line_items: true,
+        clients: true,
+        organizations: true,
+      },
+    });
+
+    if (!bill) {
+      return res.status(404).json({ error: "Bill not found" });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: bill,
+    });
+  } catch (error) {
+    console.error("Error fetching bill:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to fetch bill details",
     });
   }
 };

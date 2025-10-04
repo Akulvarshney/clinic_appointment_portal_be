@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   createInvoice,
   createQuotation,
+  getBillById,
   getInvoices,
   saveAsInvoices,
 } from "../../controller/invoicesController.js";
@@ -14,6 +15,7 @@ router.post("/create", checkOrgInfoComplete, createInvoice); // create invoice
 router.post("/quotation/create", checkOrgInfoComplete, createQuotation); // create Quotation
 router.get("/getBills", getInvoices);
 router.post("/saveAsInvoices", saveAsInvoices);
+router.get("/billDetail/:id", getBillById);
 // router.get("/invoice/:billid", generateInvoicePdf);
 
 export default router;
