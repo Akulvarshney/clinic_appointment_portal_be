@@ -62,20 +62,30 @@ export const generateInvoicePdf = async (req, res) => {
 
     // === Company Name (Top) ===
     const org = bill.organizations;
-    if (org?.company_name || org?.name) {
-      doc
-        .font(baseFont)
-        .fontSize(24)
-        .text(org.company_name || org.name, { align: "center" });
-      doc.moveDown(0.2);
-    }
+
+    const typeOFBill = bill.bill_type === "INVOICE" ? "INVOICE" : "QUOTATION";
+
+    doc
+      .font(baseFont)
+      .fontSize(24)
+      .text(
+        bill?.company_name_text
+          ? bill?.company_name_text
+          : org?.company_name || org?.name,
+        { align: "center" }
+      );
+    doc.moveDown(0.2);
 
     if (org) {
       const orgInfo = [
         org.billing_address,
         org.billing_phone ? `Phone: ${org.billing_phone}` : "",
         org.billing_email ? `Email: ${org.billing_email}` : "",
-        org.gstnumber ? `GST: ${org.gstnumber}` : "",
+        typeOFBill === "INVOICE"
+          ? org.gstnumber
+            ? `GST: ${org.gstnumber}`
+            : ""
+          : "",
       ]
         .filter(Boolean)
         .join("\n");
@@ -84,8 +94,6 @@ export const generateInvoicePdf = async (req, res) => {
         doc.moveDown(1);
       }
     }
-
-    const typeOFBill = bill.bill_type === "INVOICE" ? "INVOICE" : "QUOTATION";
 
     // === Invoice Title ===
     doc
@@ -125,28 +133,29 @@ export const generateInvoicePdf = async (req, res) => {
       parseFloat(bill.total_cgst) > 0 || parseFloat(bill.total_sgst) > 0;
 
     const baseCols = [
-      { label: "Service", width: 0.2, key: "service_name" },
-      { label: "Qty", width: 0.06, key: "quantity", align: "right" },
-      { label: "Rate", width: 0.1, key: "rate", align: "right" },
+      { label: "Service", width: 0.22, key: "service_name" },
+      { label: "Qty", width: 0.05, key: "quantity", align: "right" },
+      { label: "Rate", width: 0.08, key: "rate", align: "right" },
+      { label: "GST", width: 0.07, key: "gst_percentage", align: "right" },
       {
         label: "Disc",
-        width: 0.12,
+        width: 0.09,
         key: "line_discount_share",
         align: "right",
       },
-      { label: "Taxable", width: 0.12, key: "taxable_amount", align: "right" },
+      { label: "Taxable", width: 0.09, key: "taxable_amount", align: "right" },
     ];
 
     const taxCols = isIntraState
       ? [
-          { label: "CGST", width: 0.12, key: "cgst_amount", align: "right" },
-          { label: "SGST", width: 0.12, key: "sgst_amount", align: "right" },
+          { label: "CGST", width: 0.09, key: "cgst_amount", align: "right" },
+          { label: "SGST", width: 0.09, key: "sgst_amount", align: "right" },
         ]
-      : [{ label: "IGST", width: 0.24, key: "igst_amount", align: "right" }];
+      : [{ label: "IGST", width: 0.18, key: "igst_amount", align: "right" }];
 
     const totalCol = {
       label: "Total",
-      width: 0.16,
+      width: 0.14,
       key: "final_amount",
       align: "right",
     };
@@ -175,6 +184,9 @@ export const generateInvoicePdf = async (req, res) => {
         let value = "N/A";
         if (col.key === "service_name") {
           value = item.service_name || item.description || "N/A";
+        } else if (col.key === "gst_percentage") {
+          const pct = item.gst_percentage;
+          value = pct != null ? `${pct}%` : "N/A";
         } else {
           const isMonetary = [
             "rate",
@@ -183,7 +195,7 @@ export const generateInvoicePdf = async (req, res) => {
             "sgst_amount",
             "igst_amount",
             "final_amount",
-            "line_discount_share", // ← Included here
+            "line_discount_share",
           ].includes(col.key);
           value = isMonetary
             ? withRupee(item[col.key])
@@ -380,22 +392,32 @@ export const generateThermalInvoicePdf = async (req, res) => {
     doc.moveDown(0.4);
 
     const org = bill.organizations;
-    if (org?.company_name || org?.name) {
-      doc
-        .font(`${baseFont}-Bold`)
-        .fontSize(12)
-        .text(org.company_name || org.name, 8, doc.y, {
+
+    doc
+      .font(`${baseFont}-Bold`)
+      .fontSize(12)
+      .text(
+        bill?.company_name_text
+          ? bill?.company_name_text
+          : org?.company_name || org?.name,
+        8,
+        doc.y,
+        {
           align: "center",
           width: 210,
-        });
-      doc.moveDown(0.3);
-    }
+        }
+      );
+    doc.moveDown(0.3);
 
     const orgInfo = [
       org?.billing_address,
       org?.billing_phone ? `Ph: ${org.billing_phone}` : "",
       org?.billing_email ? `Email: ${org.billing_email}` : "",
-      org?.gstnumber ? `GSTIN: ${org.gstnumber}` : "",
+      typeOFBill === "INVOICE"
+        ? org.gstnumber
+          ? `GST: ${org.gstnumber}`
+          : ""
+        : "",
     ]
       .filter(Boolean)
       .join("\n");
@@ -738,8 +760,6 @@ export const generateReceiptPdf = async (req, res) => {
     const cols = [
       { label: "Particulars", width: 0.45, key: "service_name" },
       { label: "Qty", width: 0.1, key: "quantity", align: "center" },
-      { label: "Rate (₹)", width: 0.2, key: "price", align: "right" },
-      { label: "Amount (₹)", width: 0.25, key: "total", align: "right" },
     ];
 
     const colWidths = cols.map((col) => col.width * usableWidth);
@@ -778,11 +798,13 @@ export const generateReceiptPdf = async (req, res) => {
           value = item.service_name || item.services?.name || "Service";
         } else if (col.key === "quantity") {
           value = qty.toFixed(3);
-        } else if (col.key === "price") {
-          value = price.toFixed(2);
-        } else if (col.key === "total") {
-          value = total.toFixed(2);
         }
+
+        // else if (col.key === "price") {
+        //   value = price.toFixed(2);
+        // } else if (col.key === "total") {
+        //   value = total.toFixed(2);
+        // }
 
         doc.text(value, x, y, {
           width: colWidths[i],
@@ -1033,11 +1055,9 @@ export const generateThermalReceiptPdf = async (req, res) => {
     doc.moveDown(0.2);
 
     // Table header with proper alignment
-    const headerLine =
-      padRight("Item", 20) +
-      padCenter("Qty", 6) +
-      padLeft("Rate", 8) +
-      padLeft("Amt", 8);
+    const headerLine = padRight("Item", 20) + padCenter("Qty", 6);
+    // padLeft("Rate", 8) +
+    // padLeft("Amt", 8);
 
     doc.font("Courier-Bold").fontSize(7).text(headerLine);
     doc.font("Courier").fontSize(7).text(thinDivider);
@@ -1059,10 +1079,9 @@ export const generateThermalReceiptPdf = async (req, res) => {
 
       // First line with all details
       const firstLine =
-        padRight(serviceLines[0], 20) +
-        padCenter(qty.toFixed(3), 6) +
-        padLeft(price.toFixed(2), 8) +
-        padLeft(total.toFixed(2), 8);
+        padRight(serviceLines[0], 20) + padCenter(qty.toFixed(3), 6);
+      // padLeft(price.toFixed(2), 8) +
+      // padLeft(total.toFixed(2), 8);
 
       doc.font("Courier").fontSize(7).text(firstLine);
 
