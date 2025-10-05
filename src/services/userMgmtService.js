@@ -584,13 +584,36 @@ export const createDoctorService = async (
   });
 };
 
+// export const getOrgDetailsService = async (orgId) => {
+//   const org = await Prisma.organization_billing_details.findUnique({
+//     where: {
+//       organization_id: orgId,
+//     },
+//   });
+//   return org;
+// };
 export const getOrgDetailsService = async (orgId) => {
-  const org = await Prisma.organizations.findUnique({
-    where: {
-      id: orgId,
-    },
+  const org = await Prisma.organization_billing_details.findUnique({
+    where: { organization_id: orgId },
   });
-  return org;
+
+  if (!org) {
+    return null; // or throw an error if you prefer
+  }
+
+  // Map Prisma fields to your custom response keys
+  return {
+    id: org.id,
+    org_name: org.billing_brand_name || "",
+    company_name: org.billing_company_name || "",
+    gst_number: org.gst_number || "",
+    invoice_prefix: org.billing_invoice_prefix || "",
+    invoice_sequence_start: org.billing_invoice_sequence_start || "",
+    address: org.billing_address || "",
+    phone: org.billing_phone || "",
+    email: org.billing_email || "",
+    state: org.state,
+  };
 };
 
 export const saveOrgDetailsService = async (
@@ -602,33 +625,109 @@ export const saveOrgDetailsService = async (
   invoice_sequence_start,
   address,
   billing_phone,
-  billing_email
+  billing_email,
+  state
 ) => {
-  const org = await Prisma.organizations.findUnique({
-    where: {
-      id: orgId,
-    },
-  });
   if (!orgId) {
-    throw new Error("Organization does not exist");
+    throw new Error("organization_id is required");
   }
 
-  await Prisma.organizations.update({
-    where: { id: orgId },
-    data: {
-      is_complete: true,
-      name: name,
-      company_name,
-      gstnumber: gstnumber,
-      invoice_prefix,
-      invoice_sequence_start: parseInt(invoice_sequence_start),
-      address,
+  const result = await Prisma.organization_billing_details.upsert({
+    where: { organization_id: orgId },
+    create: {
+      organization_id: orgId,
+      billing_brand_name: name,
+      billing_company_name: company_name,
+      gst_number: gstnumber,
       billing_phone: billing_phone,
       billing_email: billing_email,
+      billing_address: address,
+      billing_invoice_prefix: invoice_prefix,
+      billing_invoice_sequence_start: invoice_sequence_start,
+      state: state,
+    },
+    update: {
+      billing_brand_name: name,
+      billing_company_name: company_name,
+      gst_number: gstnumber,
+      billing_phone: billing_phone,
+      billing_email: billing_email,
+      billing_address: address,
+      billing_invoice_prefix: invoice_prefix,
+      billing_invoice_sequence_start: invoice_sequence_start,
+      state: state,
     },
   });
-  return org;
+
+  return result;
 };
+
+// export const saveOrgDetailsService = async (
+//   orgId,
+//   name,
+//   company_name,
+//   gstnumber,
+//   invoice_prefix,
+//   invoice_sequence_start,
+//   address,
+//   billing_phone,
+//   billing_email,
+//   state
+// ) => {
+//   const org = await Prisma.organization_billing_details.findUnique({
+//     where: {
+//       organization_id: orgId,
+//     },
+//   });
+//   if (!orgId) {
+//     await Prisma.organization_billing_details.create({
+//       data: {
+//         organization_id: orgId,
+//         billing_brand_name: name,
+//         billing_company_name: company_name,
+//         gst_number: gstnumber,
+//         billing_phone: billing_phone,
+//         billing_email: billing_email,
+//         billing_address: address,
+//         billing_invoice_prefix: invoice_prefix,
+//         billing_invoice_sequence_start: invoice_sequence_start,
+//         state: state,
+//       },
+//     });
+//   } else {
+//     await Prisma.organization_billing_details.update({
+//       where: {
+//         organization_id: orgId,
+//       },
+//       data: {
+//         billing_brand_name: name,
+//         billing_company_name: company_name,
+//         gst_number: gstnumber,
+//         billing_phone: billing_phone,
+//         billing_email: billing_email,
+//         billing_address: address,
+//         billing_invoice_prefix: invoice_prefix,
+//         billing_invoice_sequence_start: invoice_sequence_start,
+//         state: state,
+//       },
+//     });
+//   }
+//   // await Prisma.organizations.update({
+//   //   where: { id: orgId },
+//   //   data: {
+//   //     is_complete: true,
+//   //     name: name,
+//   //     company_name,
+//   //     gstnumber: gstnumber,
+//   //     invoice_prefix,
+//   //     invoice_sequence_start: parseInt(invoice_sequence_start),
+//   //     address,
+//   //     billing_phone: billing_phone,
+//   //     billing_email: billing_email,
+//   //   },
+//   // });
+//   return org;
+// };
 
 export const updateOrgDetailsService = async (orgId) => {
   const org = await Prisma.organizations.findUnique({

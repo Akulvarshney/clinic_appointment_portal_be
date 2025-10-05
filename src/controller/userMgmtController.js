@@ -389,13 +389,17 @@ export const createDoctorController = async (req, res) => {
   }
 };
 
-export const getOrgDetails = async (req, res) => {
+export const getOrgBillingDetails = async (req, res) => {
   try {
     const { orgId } = req.query;
     const response = await getOrgDetailsService(orgId);
     sendResponse(
       res,
-      { message: response.message, response, status: response.status },
+      {
+        message: "Getting Organization data successfully",
+        response,
+        status: 200,
+      },
       200
     );
   } catch (err) {
@@ -408,25 +412,27 @@ export const saveOrgDetails = async (req, res) => {
   try {
     const { orgId } = req.query;
     const {
-      name,
+      org_name,
       company_name,
-      gstnumber,
+      gst_number,
       invoice_prefix,
       invoice_sequence_start,
       address,
       billing_phone,
       billing_email,
+      state,
     } = req.body;
     const response = await saveOrgDetailsService(
       orgId,
-      name,
+      org_name,
       company_name,
-      gstnumber,
+      gst_number,
       invoice_prefix,
       invoice_sequence_start,
       address,
       billing_phone,
-      billing_email
+      billing_email,
+      state
     );
     sendResponse(
       res,

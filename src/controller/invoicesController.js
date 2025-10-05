@@ -177,6 +177,12 @@ export const createInvoice = async (req, res) => {
     const organization = await prisma.organizations.findUnique({
       where: { id: organization_id },
     });
+    const organizationBillDetails =
+      await prisma.organization_billing_details.findUnique({
+        where: { organization_id: organization_id },
+      });
+
+    console.log("siddhant bill details 1", organizationBillDetails);
 
     if (!organization) {
       return res.status(404).json({
@@ -231,7 +237,7 @@ export const createInvoice = async (req, res) => {
           round_off_enabled: round_off_enabled === true,
           bill_type,
           status,
-          company_name_text: organization.company_name,
+          brand_name_text: organizationBillDetails.billing_brand_name,
           is_valid: true,
         },
       });
@@ -348,6 +354,13 @@ export const createQuotation = async (req, res) => {
       where: { id: organization_id },
     });
 
+    const organizationBillDetails =
+      await prisma.organization_billing_details.findUnique({
+        where: { organization_id: organization_id },
+      });
+
+    console.log("siddhant bill details 2", organizationBillDetails);
+
     if (!organization) {
       return res.status(404).json({
         success: false,
@@ -411,7 +424,7 @@ export const createQuotation = async (req, res) => {
       round_off_enabled: round_off_enabled === true,
       bill_type,
       status,
-      company_name_text: organization.company_name,
+      //company_name_text: organization.company_name,
       is_valid: true,
     };
 
@@ -437,6 +450,8 @@ export const createQuotation = async (req, res) => {
         });
       } else {
         // Create new bill
+        billData.brand_name_text = organizationBillDetails.billing_brand_name; // add the company name only when creating the existing bill
+
         bill = await tx.bills.create({
           data: billData,
         });
@@ -657,7 +672,7 @@ export const getInvoices = async (req, res) => {
 };
 export const saveAsInvoices = async (req, res) => {
   const { id, orgId } = req.query; // quotation id
-  console.log("SIddhant ", id, orgId);
+  //console.log("SIddhant ", id, orgId);
   try {
     const invoiceNumber = await generateInvoiceNumber(orgId);
     const result = await prisma.$transaction(async (tx) => {
@@ -697,6 +712,7 @@ export const saveAsInvoices = async (req, res) => {
           total_igst: quotation.total_igst,
           total_sgst: quotation.total_sgst,
           total_tax: quotation.total_tax,
+          brand_name_text: quotation.brand_name_text,
         },
       });
 

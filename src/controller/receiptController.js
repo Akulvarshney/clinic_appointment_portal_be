@@ -48,16 +48,28 @@ export const saveReceipt = async (req, res) => {
       where: { id: organization_id },
     });
 
+    const organizationBillDetails =
+      await prisma.organization_billing_details.findUnique({
+        where: { organization_id: organization_id },
+      });
+
     const newReceipt = await prisma.$transaction(async (tx) => {
       const receipt_id = await generateReceiptId(tx, organization_id);
-
+      const company_text =
+        organizationBillDetails.billing_company_name +
+        "\n" +
+        organizationBillDetails.billing_phone +
+        "\n" +
+        organizationBillDetails.state;
+      console.log("company_text", company_text);
       return tx.receipts.create({
         data: {
           receipt_id,
           organization_id,
           client_id,
           amount,
-          company_name_text: organization.company_name,
+          company_name_text: company_text,
+          brand_name_text: organizationBillDetails.billing_brand_name,
           is_valid: true,
           // created_at: new Date(),
           //updated_at: new Date(),
