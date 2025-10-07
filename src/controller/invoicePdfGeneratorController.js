@@ -81,11 +81,6 @@ export const generateInvoicePdf = async (req, res) => {
         org.billing_address,
         org.billing_phone ? `Phone: ${org.billing_phone}` : "",
         org.billing_email ? `Email: ${org.billing_email}` : "",
-        typeOFBill === "INVOICE"
-          ? org.gstnumber
-            ? `GST: ${org.gstnumber}`
-            : ""
-          : "",
       ]
         .filter(Boolean)
         .join("\n");
