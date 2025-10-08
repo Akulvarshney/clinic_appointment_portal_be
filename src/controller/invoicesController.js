@@ -675,6 +675,12 @@ export const saveAsInvoices = async (req, res) => {
   //console.log("SIddhant ", id, orgId);
   try {
     const invoiceNumber = await generateInvoiceNumber(orgId);
+    const orgBillingDetails =
+      await prisma.organization_billing_details.findUnique({
+        where: { organization_id: orgId },
+      });
+    console.log("orgBillingDetails ", orgBillingDetails);
+
     const result = await prisma.$transaction(async (tx) => {
       const quotation = await tx.bills.findUnique({
         where: { id },
@@ -684,7 +690,10 @@ export const saveAsInvoices = async (req, res) => {
       if (!quotation) {
         throw new Error("Quotation not found");
       }
-
+      console.log(
+        "quotation.bill_from_text + orgBillingDetails.gst_number ",
+        quotation.bill_from_text + "\n" + orgBillingDetails.gst_number
+      );
       const newInvoice = await tx.bills.create({
         data: {
           invoice_number: invoiceNumber,
@@ -693,7 +702,8 @@ export const saveAsInvoices = async (req, res) => {
           discount_percentage: quotation.discount_percentage,
           is_valid: true,
           bill_type: "INVOICE",
-          bill_from_text: quotation.bill_from_text,
+          bill_from_text:
+            quotation.bill_from_text + "\n" + orgBillingDetails.gst_number,
           bill_to_text: quotation.bill_to_text,
           discount_amount: quotation.discount_amount,
           due_date: quotation.due_date,

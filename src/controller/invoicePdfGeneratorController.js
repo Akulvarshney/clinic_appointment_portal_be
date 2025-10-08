@@ -29,6 +29,7 @@ export const generateInvoicePdf = async (req, res) => {
       where: { id: billId },
       include: { bill_line_items: true, organizations: true, clients: true },
     });
+    console.log("bill ", bill);
 
     if (!bill) return res.status(404).json({ error: "Bill not found" });
 
@@ -69,26 +70,26 @@ export const generateInvoicePdf = async (req, res) => {
       .font(baseFont)
       .fontSize(24)
       .text(
-        bill?.company_name_text
-          ? bill?.company_name_text
+        bill?.brand_name_text
+          ? bill?.brand_name_text
           : org?.company_name || org?.name,
         { align: "center" }
       );
     doc.moveDown(0.2);
 
-    if (org) {
-      const orgInfo = [
-        org.billing_address,
-        org.billing_phone ? `Phone: ${org.billing_phone}` : "",
-        org.billing_email ? `Email: ${org.billing_email}` : "",
-      ]
-        .filter(Boolean)
-        .join("\n");
-      if (orgInfo) {
-        doc.fontSize(10).text(orgInfo, { align: "center" });
-        doc.moveDown(1);
-      }
-    }
+    // if (org) {
+    //   const orgInfo = [
+    //     org.billing_address,
+    //     org.billing_phone ? `Phone: ${org.billing_phone}` : "",
+    //     org.billing_email ? `Email: ${org.billing_email}` : "",
+    //   ]
+    //     .filter(Boolean)
+    //     .join("\n");
+    //   if (orgInfo) {
+    //     doc.fontSize(10).text(orgInfo, { align: "center" });
+    //     doc.moveDown(1);
+    //   }
+    // }
 
     // === Invoice Title ===
     doc
@@ -282,7 +283,7 @@ export const generateInvoicePdf = async (req, res) => {
     doc.fontSize(10).font(baseFont);
 
     // Left: "For [Company Name]"
-    const forText = "For " + (org?.company_name || org?.name || "");
+    const forText = "For " + (bill?.company_name_text || org?.name || "");
     doc.text(forText, leftMargin, signatureY);
 
     // Right: Signature area (aligned to right side)
