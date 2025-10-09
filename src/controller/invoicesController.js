@@ -20,20 +20,17 @@ const generateInvoiceNumber = async (organizationId) => {
     // Use a transaction to ensure atomicity
     const newInvoiceNumber = await prisma.$transaction(async (tx) => {
       // Get organization details within the transaction
-      const organization = await tx.organizations.findUnique({
-        where: { id: organizationId },
-        select: {
-          invoice_prefix: true,
-          invoice_sequence_start: true,
-          name: true,
-        },
-      });
+      const organization = await prisma.organization_billing_details.findUnique(
+        {
+          where: { organization_id: organizationId },
+        }
+      );
 
       if (!organization) {
         throw new Error("Organization not found");
       }
 
-      const prefix = organization.invoice_prefix || "INV";
+      const prefix = organization.billing_invoice_prefix || "INV";
 
       const lastInvoice = await tx.bills.findFirst({
         where: {
@@ -51,7 +48,7 @@ const generateInvoiceNumber = async (organizationId) => {
         },
       });
 
-      let sequenceNumber = organization.invoice_sequence_start;
+      let sequenceNumber = organization.billing_invoice_sequence_start;
 
       if (lastInvoice) {
         // Extract and increment the sequence number from the last invoice

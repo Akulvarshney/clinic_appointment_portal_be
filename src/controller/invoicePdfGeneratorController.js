@@ -113,14 +113,13 @@ export const generateInvoicePdf = async (req, res) => {
     doc.text("Bill From:", leftMargin, tableTop);
     doc.text(bill.bill_from_text || "N/A", leftMargin, tableTop + 15, {
       width: colWidth,
-      height: 60,
     });
     doc.text("Bill To:", leftMargin + colWidth + 20, tableTop);
     doc.text(
       bill.bill_to_text || "N/A",
       leftMargin + colWidth + 20,
       tableTop + 15,
-      { width: colWidth, height: 60 }
+      { width: colWidth }
     );
     doc.moveDown(3);
 
@@ -325,14 +324,14 @@ export const generateThermalInvoicePdf = async (req, res) => {
 
     if (!bill) return res.status(404).json({ error: "Bill not found" });
 
-    // === PDF INIT (big height, buffered) ===
+    // === PDF INIT ===
     const doc = new PDFDocument({
       autoFirstPage: false,
       bufferPages: true,
     });
 
     doc.addPage({
-      size: [226, 1000], // very tall page initially
+      size: [226, 1000],
       margins: { top: 10, bottom: 10, left: 8, right: 8 },
     });
 
@@ -379,6 +378,18 @@ export const generateThermalInvoicePdf = async (req, res) => {
     };
 
     const typeOFBill = bill.bill_type === "INVOICE" ? "INVOICE" : "QUOTATION";
+    const org = bill.organizations;
+
+    doc
+      .font(`${baseFont}-Bold`)
+      .fontSize(12)
+      .text(
+        bill?.brand_name_text || org?.company_name || org?.name || "",
+        8,
+        doc.y,
+        { align: "center", width: 210 }
+      );
+    doc.moveDown(0.3);
 
     // === Header ===
     doc.font(`${baseFont}-Bold`).fontSize(18).text(typeOFBill, 8, doc.y, {
@@ -387,104 +398,68 @@ export const generateThermalInvoicePdf = async (req, res) => {
     });
     doc.moveDown(0.4);
 
-    const org = bill.organizations;
+    // const orgInfo = [
+    //   org?.billing_address,
+    //   org?.billing_phone ? `Ph: ${org.billing_phone}` : "",
+    //   org?.billing_email ? `Email: ${org.billing_email}` : "",
+    //   typeOFBill === "INVOICE" && org?.gstnumber ? `GST: ${org.gstnumber}` : "",
+    // ]
+    //   .filter(Boolean)
+    //   .join("\n");
 
-    doc
-      .font(`${baseFont}-Bold`)
-      .fontSize(12)
-      .text(
-        bill?.company_name_text
-          ? bill?.company_name_text
-          : org?.company_name || org?.name,
-        8,
-        doc.y,
-        {
-          align: "center",
-          width: 210,
-        }
-      );
-    doc.moveDown(0.3);
+    // if (orgInfo) {
+    //   doc.font(baseFont).fontSize(7).text(orgInfo, 8, doc.y, {
+    //     align: "center",
+    //     width: 210,
+    //   });
+    //   doc.moveDown(0.4);
+    // }
 
-    const orgInfo = [
-      org?.billing_address,
-      org?.billing_phone ? `Ph: ${org.billing_phone}` : "",
-      org?.billing_email ? `Email: ${org.billing_email}` : "",
-      typeOFBill === "INVOICE"
-        ? org.gstnumber
-          ? `GST: ${org.gstnumber}`
-          : ""
-        : "",
-    ]
-      .filter(Boolean)
-      .join("\n");
-
-    if (orgInfo) {
-      doc.font(baseFont).fontSize(7).text(orgInfo, 8, doc.y, {
-        align: "center",
-        width: 210,
-      });
-      doc.moveDown(0.4);
-    }
-
-    // Separator line
     drawLine();
     doc.moveDown(0.2);
 
-    // Invoice Meta
-    doc.fontSize(8);
+    // === Invoice Meta ===
     printLine("Invoice No:", bill.invoice_number);
     printLine("Date:", formatDate(bill.invoice_date));
     doc.moveDown(0.3);
 
-    // === Bill From ===
+    // === Bill From / To ===
     if (bill.bill_from_text) {
       drawDashedLine();
       doc.moveDown(0.1);
-      doc.font(`${baseFont}-Bold`).fontSize(8).text("BILL FROM:", 8, doc.y, {
-        align: "left",
-        width: 210,
-      });
+      doc.font(`${baseFont}-Bold`).fontSize(8).text("BILL FROM:", 8, doc.y);
       doc.moveDown(0.1);
       doc.font(baseFont).fontSize(7).text(bill.bill_from_text, 8, doc.y, {
         width: 210,
-        align: "left",
       });
       doc.moveDown(0.3);
     }
 
-    // === Bill To ===
     if (bill.bill_to_text) {
       drawDashedLine();
       doc.moveDown(0.1);
-      doc.font(`${baseFont}-Bold`).fontSize(8).text("BILL TO:", 8, doc.y, {
-        align: "left",
-        width: 210,
-      });
+      doc.font(`${baseFont}-Bold`).fontSize(8).text("BILL TO:", 8, doc.y);
       doc.moveDown(0.1);
       doc.font(baseFont).fontSize(7).text(bill.bill_to_text, 8, doc.y, {
         width: 210,
-        align: "left",
       });
       doc.moveDown(0.3);
     }
-
-    // === Tax Type ===
-    const isIntraState =
-      (bill.total_cgst && parseFloat(bill.total_cgst) > 0) ||
-      (bill.total_sgst && parseFloat(bill.total_sgst) > 0);
 
     // === Line Items ===
     drawLine();
     doc.moveDown(0.2);
 
-    bill.bill_line_items.forEach((item, index) => {
-      const lineNumber = index + 1;
-      const desc = item.service_name || item.description || "Item";
+    const isIntraState =
+      (bill.total_cgst && parseFloat(bill.total_cgst) > 0) ||
+      (bill.total_sgst && parseFloat(bill.total_sgst) > 0);
 
+    bill.bill_line_items.forEach((item, index) => {
+      const desc = item.service_name || item.description || "Item";
       doc
         .font(`${baseFont}-Bold`)
         .fontSize(8)
-        .text(`${lineNumber}) ${desc}`, 8, doc.y, {
+        .text(`${index + 1}) ${desc}`, 8, doc.y, {
           width: 210,
           lineBreak: true,
         });
@@ -492,22 +467,32 @@ export const generateThermalInvoicePdf = async (req, res) => {
       doc.font(baseFont).fontSize(7);
 
       const printDetail = (label, value) => {
-        if (value && value !== "0" && value !== "0.00") {
+        if (
+          value != null &&
+          value !== "" &&
+          value !== "0" &&
+          value !== "0.00"
+        ) {
           doc.text(`${label}: ${value}`, 20, doc.y, { width: 200 });
         }
       };
 
-      printDetail("Qty", item.quantity || 1);
+      printDetail("Qty", item.quantity || "1");
       printDetail("Rate", withRupee(item.rate));
+
+      // ➕ Explicitly show GST Percentage
+      if (item.gst_percentage != null && item.gst_percentage !== "") {
+        printDetail("GST", `${item.gst_percentage}%`);
+      }
 
       if (
         item.line_discount_share &&
         parseFloat(item.line_discount_share) > 0
       ) {
-        const discPerc = item.discount_percentage
-          ? ` (${item.discount_percentage}%)`
-          : "";
-        printDetail(`Disc${discPerc}`, withRupee(item.line_discount_share));
+        // const discPerc = item.discount_percentage
+        //   ? ` (${item.discount_percentage}%)`
+        //   : "";
+        printDetail(`Disc`, withRupee(item.line_discount_share));
       }
 
       if (item.taxable_amount) {
@@ -517,13 +502,13 @@ export const generateThermalInvoicePdf = async (req, res) => {
       if (isIntraState) {
         if (item.cgst_amount && parseFloat(item.cgst_amount) > 0) {
           const cgstPerc = item.gst_percentage
-            ? ` (${item.gst_percentage / 2}%)`
+            ? ` (${parseFloat(item.gst_percentage) / 2}%)`
             : "";
           printDetail(`CGST${cgstPerc}`, withRupee(item.cgst_amount));
         }
         if (item.sgst_amount && parseFloat(item.sgst_amount) > 0) {
           const sgstPerc = item.gst_percentage
-            ? ` (${item.gst_percentage / 2}%)`
+            ? ` (${parseFloat(item.gst_percentage) / 2}%)`
             : "";
           printDetail(`SGST${sgstPerc}`, withRupee(item.sgst_amount));
         }
@@ -537,7 +522,6 @@ export const generateThermalInvoicePdf = async (req, res) => {
       }
 
       printDetail("Total", withRupee(item.final_amount));
-
       doc.moveDown(0.3);
 
       if (index < bill.bill_line_items.length - 1) {
@@ -549,10 +533,14 @@ export const generateThermalInvoicePdf = async (req, res) => {
     drawLine();
     doc.moveDown(0.2);
 
-    // === Summary ===
+    // === Summary Section ===
     printLine("Sub Total:", withRupee(bill.sub_total));
 
-    if (bill.discount_amount && bill.discount_amount !== "0") {
+    if (
+      bill.discount_amount &&
+      String(bill.discount_amount) !== "0" &&
+      String(bill.discount_amount) !== "0.00"
+    ) {
       printLine(
         `Discount (${bill.discount_percentage}%):`,
         `-${withRupee(bill.discount_amount)}`
@@ -560,9 +548,22 @@ export const generateThermalInvoicePdf = async (req, res) => {
     }
 
     if (bill.taxable_after_discount) {
-      printLine("Taxable:", withRupee(bill.taxable_after_discount));
+      printLine(
+        "Taxable After Discount:",
+        withRupee(bill.taxable_after_discount)
+      );
     }
 
+    // ➕ Add "Total Tax" line (like in A4)
+    if (
+      bill.total_tax &&
+      String(bill.total_tax) !== "0" &&
+      String(bill.total_tax) !== "0.00"
+    ) {
+      printLine("Total Tax:", withRupee(bill.total_tax));
+    }
+
+    // Breakdown only if needed (already shown above, but A4 shows both — keep for clarity)
     if (isIntraState) {
       if (bill.total_cgst && parseFloat(bill.total_cgst) > 0) {
         printLine("CGST:", withRupee(bill.total_cgst));
@@ -576,28 +577,35 @@ export const generateThermalInvoicePdf = async (req, res) => {
       }
     }
 
-    if (bill.shipping_charges && bill.shipping_charges !== "0") {
+    if (
+      bill.shipping_charges &&
+      String(bill.shipping_charges) !== "0" &&
+      String(bill.shipping_charges) !== "0.00"
+    ) {
       printLine("Shipping:", withRupee(bill.shipping_charges));
     }
 
-    if (bill.round_off_amount && bill.round_off_amount !== "0") {
-      const roundOffValue = parseFloat(bill.round_off_amount);
-      printLine(
-        "Round Off:",
-        `${roundOffValue >= 0 ? "+" : ""}${withRupee(bill.round_off_amount)}`
-      );
+    if (
+      bill.round_off_enabled &&
+      bill.round_off_amount &&
+      String(bill.round_off_amount) !== "0" &&
+      String(bill.round_off_amount) !== "0.00"
+    ) {
+      const roValue = parseFloat(bill.round_off_amount);
+      const formattedRO =
+        roValue >= 0 ? `+${withRupee(roValue)}` : withRupee(roValue);
+      printLine("Round Off:", formattedRO);
     }
 
     doc.moveDown(0.2);
     drawLine();
     doc.moveDown(0.2);
 
-    // Grand total
+    // Grand Total
     const totalY = doc.y;
-    doc
-      .font(`${baseFont}-Bold`)
-      .fontSize(10)
-      .text("GRAND TOTAL", 8, totalY, { width: 120 });
+    doc.font(`${baseFont}-Bold`).fontSize(10).text("GRAND TOTAL", 8, totalY, {
+      width: 120,
+    });
     doc.fontSize(12).text(withRupee(bill.grand_total), 130, totalY, {
       align: "right",
       width: 88,
@@ -605,7 +613,23 @@ export const generateThermalInvoicePdf = async (req, res) => {
 
     doc.moveDown(0.4);
     drawLine();
-    doc.moveDown(0.5);
+    doc.moveDown(0.3);
+
+    // === Notes & Terms ===
+    if (bill.notes || bill.terms) {
+      if (bill.notes) {
+        doc.font(baseFont).fontSize(8).text("Notes:", 8, doc.y);
+        doc.fontSize(7).text(bill.notes, 8, doc.y + 10, { width: 210 });
+        doc.moveDown(0.5);
+      }
+      if (bill.terms) {
+        doc.fontSize(8).text("Terms:", 8, doc.y);
+        doc.fontSize(7).text(bill.terms, 8, doc.y + 10, { width: 210 });
+        doc.moveDown(0.5);
+      }
+      drawLine();
+      doc.moveDown(0.2);
+    }
 
     // === Footer ===
     doc
@@ -621,17 +645,15 @@ export const generateThermalInvoicePdf = async (req, res) => {
       width: 210,
     });
     doc.moveDown(0.3);
-
     doc.fontSize(8).text("* * * * * * * * * * * *", 8, doc.y, {
       align: "center",
       width: 210,
     });
 
-    // === Resize dynamically ===
-    const usedHeight = doc.y + 40; // add padding
+    // === Finalize Page Height ===
+    const usedHeight = doc.y + 30;
     doc.page.size = [226, usedHeight];
 
-    // End stream
     doc.end();
   } catch (error) {
     console.error("Thermal PDF Error:", error);
@@ -687,24 +709,23 @@ export const generateReceiptPdf = async (req, res) => {
     const usableWidth = pageWidth - leftMargin - 50;
 
     // === ORGANIZATION HEADER ===
-    const orgName =
-      organization.company_name || organization.name || "Organization";
+    const orgName = receipt?.brand_name_text || "";
     doc.fontSize(20).font("Helvetica-Bold").text(orgName, { align: "center" });
     doc.moveDown(0.2);
 
-    const orgDetails = [
-      organization.billing_address,
-      organization.billing_phone ? `📞 ${organization.billing_phone}` : "",
-      organization.billing_email ? `✉️ ${organization.billing_email}` : "",
-      organization.gstnumber ? `GSTIN: ${organization.gstnumber}` : "",
-    ]
-      .filter(Boolean)
-      .join("\n");
+    // const orgDetails = [
+    //   organization.billing_address,
+    //   organization.billing_phone ? `📞 ${organization.billing_phone}` : "",
+    //   organization.billing_email ? `✉️ ${organization.billing_email}` : "",
+    //   organization.gstnumber ? `GSTIN: ${organization.gstnumber}` : "",
+    // ]
+    //   .filter(Boolean)
+    //   .join("\n");
 
-    if (orgDetails) {
-      doc.fontSize(9).font("Helvetica").text(orgDetails, { align: "center" });
-    }
-    doc.moveDown(1.2);
+    // if (orgDetails) {
+    //   doc.fontSize(9).font("Helvetica").text(orgDetails, { align: "center" });
+    // }
+    // doc.moveDown(1.2);
 
     // === RECEIPT TITLE & INFO ===
     doc
@@ -948,47 +969,10 @@ export const generateThermalReceiptPdf = async (req, res) => {
     const thinDivider = "-".repeat(42);
 
     // === ORGANIZATION HEADER ===
-    const orgName = (
-      organization.company_name ||
-      organization.name ||
-      "ORGANIZATION"
-    ).toUpperCase();
+    const orgName = (receipt.brand_name_text || "").toUpperCase();
 
     doc.font("Courier-Bold").fontSize(11).text(orgName, { align: "center" });
     doc.moveDown(0.3);
-
-    // Organization details
-    if (organization.billing_address) {
-      doc
-        .font("Courier")
-        .fontSize(7)
-        .text(wrapText(organization.billing_address, 38), { align: "center" });
-      doc.moveDown(0.2);
-    }
-
-    const contactInfo = [];
-    if (organization.billing_phone) {
-      contactInfo.push(`Ph: ${organization.billing_phone}`);
-    }
-    if (organization.billing_email) {
-      contactInfo.push(`Email: ${organization.billing_email}`);
-    }
-
-    if (contactInfo.length) {
-      doc.font("Courier").fontSize(7);
-      contactInfo.forEach((info) => {
-        doc.text(info, { align: "center" });
-      });
-      doc.moveDown(0.2);
-    }
-
-    if (organization.gstnumber) {
-      doc
-        .font("Courier")
-        .fontSize(7)
-        .text(`GSTIN: ${organization.gstnumber}`, { align: "center" });
-      doc.moveDown(0.2);
-    }
 
     // === MAIN DIVIDER ===
     doc.font("Courier").fontSize(8).text(divider, { align: "center" });
