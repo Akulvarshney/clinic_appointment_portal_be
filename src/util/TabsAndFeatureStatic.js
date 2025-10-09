@@ -182,6 +182,10 @@ export const tabFeatureConfig = [
         feature_unique_name: "NOTIFICATION_CENTER",
         feature_name: "Notification Center",
       },
+      {
+        feature_unique_name: "ORGANIZATION_INFO",
+        feature_name: "Organization Info",
+      },
     ],
   },
 ];

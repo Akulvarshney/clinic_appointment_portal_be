@@ -418,8 +418,8 @@ export const saveOrgDetails = async (req, res) => {
       invoice_prefix,
       invoice_sequence_start,
       address,
-      billing_phone,
-      billing_email,
+      phone,
+      email,
       state,
     } = req.body;
     const response = await saveOrgDetailsService(
@@ -430,8 +430,8 @@ export const saveOrgDetails = async (req, res) => {
       invoice_prefix,
       invoice_sequence_start,
       address,
-      billing_phone,
-      billing_email,
+      phone,
+      email,
       state
     );
     sendResponse(
