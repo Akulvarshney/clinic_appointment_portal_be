@@ -384,3 +384,13 @@ export const runSchedulerJobService = async () => {
     throw error;
   }
 };
+
+export const checkSchedulerRunService = async () => {
+  try {
+    const record = await Prisma.scheduler_job_dtl.findMany({});
+    console.log(record);
+    return record;
+  } catch (err) {
+    console.log(err);
+  }
+};

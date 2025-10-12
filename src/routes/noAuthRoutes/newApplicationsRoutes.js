@@ -3,6 +3,7 @@ import {
   trackApplication,
   submitNewApplicationWithCheck,
   updateSchedulerRun,
+  checkSchedulerRun,
 } from "../../controller/newApplicationsController.js";
 import {
   validateNewApplication,
@@ -19,5 +20,6 @@ router.post(
 );
 router.get("/trackApplication", validateTrackApplication, trackApplication);
 router.get("/updateSchedulerRun", updateSchedulerRun);
+router.get("/checkScheduler", checkSchedulerRun);
 
 export default router;
