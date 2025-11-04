@@ -185,7 +185,7 @@ export const checkShortNameController = async (req, res) => {
 export const updateSchedulerRun = async (req, res) => {
   try {
     const response = await runSchedulerJobService();
-    console.log("returng 6");
+    //console.log("returng 6");
     res.status(200).json({ success: true, data: response });
   } catch (err) {
     console.log("Error in running Scheduler API");
