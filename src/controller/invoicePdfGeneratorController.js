@@ -64,7 +64,7 @@ export const generateInvoicePdf = async (req, res) => {
     // === Company Name (Top) ===
     const org = bill.organizations;
 
-    const typeOFBill = bill.bill_type === "INVOICE" ? "INVOICE" : "QUOTATION";
+    const typeOFBill = bill.bill_type === "INVOICE" ? "INVOICE" : "PERFORMA INVOICE";
 
     doc
       .font(baseFont)
@@ -93,7 +93,7 @@ export const generateInvoicePdf = async (req, res) => {
 
     // === Invoice Title ===
     doc
-      .fontSize(20)
+      .fontSize(14)
       .font(baseFont + "-Bold") // Note: You may need NotoSans-Bold.ttf for bold
       .text(typeOFBill, { align: "center" });
     doc.moveDown(1);
@@ -222,9 +222,7 @@ export const generateInvoicePdf = async (req, res) => {
     };
 
     addRow("Sub Total", withRupee(bill.sub_total));
-    if(bill.bank_charges != "" && bill.bank_charges ){
-    addRow("Bank Charges (2%)", withRupee(bill.bank_charges));
-    }
+   
     
     if (
       String(bill.discount_amount) !== "0" &&
@@ -237,6 +235,9 @@ export const generateInvoicePdf = async (req, res) => {
     }
     addRow("Taxable After Discount", withRupee(bill.taxable_after_discount));
     addRow("Total Tax", withRupee(bill.total_tax));
+     if(bill.bank_charges != "" && bill.bank_charges ){
+    addRow("Bank Charges (2%)", withRupee(bill.bank_charges));
+    }
 
     if (
       String(bill.shipping_charges) !== "0" &&
@@ -381,7 +382,7 @@ export const generateThermalInvoicePdf = async (req, res) => {
       doc.moveDown(0.2);
     };
 
-    const typeOFBill = bill.bill_type === "INVOICE" ? "INVOICE" : "QUOTATION";
+    const typeOFBill = bill.bill_type === "INVOICE" ? "INVOICE" : "PERFORMA INVOICE";
     const org = bill.organizations;
 
     doc
@@ -396,7 +397,7 @@ export const generateThermalInvoicePdf = async (req, res) => {
     doc.moveDown(0.3);
 
     // === Header ===
-    doc.font(`${baseFont}-Bold`).fontSize(18).text(typeOFBill, 8, doc.y, {
+    doc.font(`${baseFont}-Bold`).fontSize(10).text(typeOFBill, 8, doc.y, {
       align: "center",
       width: 210,
     });
@@ -539,9 +540,7 @@ export const generateThermalInvoicePdf = async (req, res) => {
 
     // === Summary Section ===
     printLine("Sub Total:", withRupee(bill.sub_total));
-    if(bill.bank_charges != "" && bill.bank_charges ){
-    printLine("Bank Charges (2%)", withRupee(bill.bank_charges));
-    }
+ 
 
     if (
       bill.discount_amount &&
@@ -570,6 +569,8 @@ export const generateThermalInvoicePdf = async (req, res) => {
       printLine("Total Tax:", withRupee(bill.total_tax));
     }
 
+  
+
     // Breakdown only if needed (already shown above, but A4 shows both — keep for clarity)
     if (isIntraState) {
       if (bill.total_cgst && parseFloat(bill.total_cgst) > 0) {
@@ -582,6 +583,9 @@ export const generateThermalInvoicePdf = async (req, res) => {
       if (bill.total_igst && parseFloat(bill.total_igst) > 0) {
         printLine("IGST:", withRupee(bill.total_igst));
       }
+    }
+      if(bill.bank_charges != "" && bill.bank_charges ){
+    printLine("Bank Charges (2%)", withRupee(bill.bank_charges));
     }
 
     if (

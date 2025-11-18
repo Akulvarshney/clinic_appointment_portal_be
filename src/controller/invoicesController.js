@@ -87,7 +87,7 @@ const generateQuotationNumber = async (organizationId) => {
     }
 
     const financialYear = getCurrentFinancialYear();
-    const prefix = "QUOTATION";
+    const prefix = "PI";
 
     // Find the last quotation for this organization in current financial year
     const lastQuotation = await prisma.bills.findFirst({
@@ -306,6 +306,7 @@ export const createQuotation = async (req, res) => {
     const {
       id, // Add id to destructure
       organization_id,
+      bankCharges,
       client_id,
       invoice_date,
       due_date,
@@ -420,6 +421,7 @@ export const createQuotation = async (req, res) => {
       bill_from_text,
       notes,
       terms,
+       bank_charges: bankCharges,
       round_off_enabled: round_off_enabled === true,
       bill_type,
       status,
@@ -722,6 +724,7 @@ export const saveAsInvoices = async (req, res) => {
           total_sgst: quotation.total_sgst,
           total_tax: quotation.total_tax,
           brand_name_text: quotation.brand_name_text,
+          bank_charges : quotation.bank_charges
         },
       });
 
