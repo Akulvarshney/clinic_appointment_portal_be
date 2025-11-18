@@ -29,7 +29,7 @@ export const generateInvoicePdf = async (req, res) => {
       where: { id: billId },
       include: { bill_line_items: true, organizations: true, clients: true },
     });
-    console.log("bill ", bill);
+    console.log("bill suman ", bill);
 
     if (!bill) return res.status(404).json({ error: "Bill not found" });
 
@@ -222,6 +222,10 @@ export const generateInvoicePdf = async (req, res) => {
     };
 
     addRow("Sub Total", withRupee(bill.sub_total));
+    if(bill.bank_charges != "" && bill.bank_charges ){
+    addRow("Bank Charges (2%)", withRupee(bill.bank_charges));
+    }
+    
     if (
       String(bill.discount_amount) !== "0" &&
       String(bill.discount_amount) !== "0.00"
@@ -280,9 +284,9 @@ export const generateInvoicePdf = async (req, res) => {
     const signatureY = Math.max(currentY + 20, minSignatureY);
 
     doc.fontSize(10).font(baseFont);
-
+    
     // Left: "For [Company Name]"
-    const forText = "For " + (bill?.company_name_text || org?.name || "");
+    const forText = "For " + (bill?.brand_name_text || org?.name || "");
     doc.text(forText, leftMargin, signatureY);
 
     // Right: Signature area (aligned to right side)
@@ -535,6 +539,9 @@ export const generateThermalInvoicePdf = async (req, res) => {
 
     // === Summary Section ===
     printLine("Sub Total:", withRupee(bill.sub_total));
+    if(bill.bank_charges != "" && bill.bank_charges ){
+    printLine("Bank Charges (2%)", withRupee(bill.bank_charges));
+    }
 
     if (
       bill.discount_amount &&
