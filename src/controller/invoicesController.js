@@ -130,6 +130,7 @@ export const createInvoice = async (req, res) => {
   try {
     const {
       organization_id,
+      bankCharges,
       client_id,
       invoice_date,
       due_date,
@@ -179,7 +180,7 @@ export const createInvoice = async (req, res) => {
         where: { organization_id: organization_id },
       });
 
-    console.log("siddhant bill details 1", organizationBillDetails);
+    //console.log("siddhant bill details 1", organizationBillDetails);
 
     if (!organization) {
       return res.status(404).json({
@@ -234,6 +235,7 @@ export const createInvoice = async (req, res) => {
           round_off_enabled: round_off_enabled === true,
           bill_type,
           status,
+          bank_charges: bankCharges,
           brand_name_text: organizationBillDetails.billing_brand_name,
           is_valid: true,
         },
