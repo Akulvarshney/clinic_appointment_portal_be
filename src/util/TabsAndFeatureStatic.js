@@ -188,4 +188,14 @@ export const tabFeatureConfig = [
       },
     ],
   },
+    {
+    tab_number: 11,
+    tab_unique_name: "FEEDBACK_MANAGEMENT",
+    tab_name: "Feedback",
+    tab_path: "/feedbackManagement",
+    features: [
+      { feature_unique_name: "VIEW_FEEDBACK", feature_name: "View Feedback" },
+      { feature_unique_name: "ADD_FEEDBACK", feature_name: "Add Feedback" },
+    ],
+  },
 ];
