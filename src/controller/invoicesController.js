@@ -47,17 +47,19 @@ const generateInvoiceNumber = async (organizationId) => {
           invoice_number: true,
         },
       });
-
+      console.log("lastInvoice ", lastInvoice);
       let sequenceNumber = organization.billing_invoice_sequence_start;
-
+      console.log("sequenceNumber ", sequenceNumber);
       if (lastInvoice) {
         // Extract and increment the sequence number from the last invoice
         const parts = lastInvoice.invoice_number.split("/");
         if (parts.length === 3) {
           const lastSequence = parseInt(parts[2]);
+          console.log("lastSequence ", lastSequence);
           if (!isNaN(lastSequence)) {
             sequenceNumber = lastSequence + 1;
           }
+          console.log("sequenceNumber after increment ", sequenceNumber);
         }
       }
 
@@ -621,7 +623,7 @@ export const getInvoices = async (req, res) => {
       skip: skip,
       take: take,
     });
-    console.log("bills", bills);
+    //console.log("bills", bills);
     const totalCount = await prisma.bills.count({
       where: whereClause,
     });
@@ -676,11 +678,12 @@ export const saveAsInvoices = async (req, res) => {
   //console.log("SIddhant ", id, orgId);
   try {
     const invoiceNumber = await generateInvoiceNumber(orgId);
+    console.log("invoiceNumber ", invoiceNumber);
     const orgBillingDetails =
       await prisma.organization_billing_details.findUnique({
         where: { organization_id: orgId },
       });
-    console.log("orgBillingDetails ", orgBillingDetails);
+   // console.log("orgBillingDetails ", orgBillingDetails);
 
     const result = await prisma.$transaction(async (tx) => {
       const quotation = await tx.bills.findUnique({
@@ -691,10 +694,10 @@ export const saveAsInvoices = async (req, res) => {
       if (!quotation) {
         throw new Error("Quotation not found");
       }
-      console.log(
-        "quotation.bill_from_text + orgBillingDetails.gst_number ",
-        quotation.bill_from_text + "\n" + orgBillingDetails.gst_number
-      );
+      // console.log(
+      //   "quotation.bill_from_text + orgBillingDetails.gst_number ",
+      //   quotation.bill_from_text + "\n" + orgBillingDetails.gst_number
+      // );
       const newInvoice = await tx.bills.create({
         data: {
           invoice_number: invoiceNumber,
@@ -800,6 +803,15 @@ export const getBillById = async (req, res) => {
     if (!bill) {
       return res.status(404).json({ error: "Bill not found" });
     }
+
+    // Add computed field to help frontend determine toggle state
+    const billWithComputedFields = {
+      ...bill,
+      bank_charges_applied: (bill.bank_charges &&
+                            bill.bank_charges !== "" &&
+                            bill.bank_charges !== "0" &&
+                            bill.bank_charges !== "0.00")
+    };
 
     return res.status(200).json({
       success: true,

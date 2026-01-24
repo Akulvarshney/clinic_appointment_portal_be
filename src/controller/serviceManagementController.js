@@ -64,7 +64,7 @@ export const getActiveServicesController = async (req, res) => {
   try {
     const { orgId } = req.query;
     const response = await getActiveServicesInfo(orgId);
-    console.log("response.data", response.data);
+    //console.log("response.data", response.data);
     sendResponse(
       res,
       {
@@ -88,7 +88,7 @@ export const updateServicesController = async (req, res) => {
     if (!id) {
       return res.status(400).json({ message: "Service ID is required" });
     }
-
+    console.log("id ", id);
     const response = await updateServices({
       id,
       serviceName,
@@ -98,7 +98,7 @@ export const updateServicesController = async (req, res) => {
       status,
       tax_percentage,
     });
-
+    console.log("response ", response);
     sendResponse(
       res,
       { message: "Service updated successfully", data: response },

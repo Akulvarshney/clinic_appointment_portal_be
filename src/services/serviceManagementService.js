@@ -132,18 +132,20 @@ export const updateServices = async ({
   status,
   tax_percentage,
 }) => {
+  console.log("tax_percentage ", tax_percentage);
   const updatedService = await Prisma.services.update({
     where: { id },
     data: {
-      ...(serviceName && { name: serviceName }),
-      ...(desc && { description: desc }),
-      ...(price && { price }),
-      ...(orgId && { organization_id: orgId }),
-      ...(status && { status }),
-      ...(tax_percentage && { tax_percentage }),
+      ...(serviceName !== undefined && { name: serviceName }),
+      ...(desc !== undefined && { description: desc }),
+      ...(price !== undefined && { price }),
+      ...(orgId !== undefined && { organization_id: orgId }),
+      ...(status !== undefined && { status }),
+      ...(tax_percentage !== undefined && { tax_percentage }),
     },
   });
-
+  
+console.log("updatedService ", updatedService.tax_percentage);
   return updatedService;
 };
 
