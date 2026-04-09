@@ -34,6 +34,11 @@ export const tabFeatureConfig = [
         feature_unique_name: "DELETE_APPOINTMENT",
         feature_name: "Delete Appointment",
       },
+      {
+        feature_unique_name: "ADD_PAST_APPOINTMENT",
+        feature_name: "Add Past Appointment",
+      },
+
     ],
   },
   {
