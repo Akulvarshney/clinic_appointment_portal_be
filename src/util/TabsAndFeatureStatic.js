@@ -203,4 +203,19 @@ export const tabFeatureConfig = [
       { feature_unique_name: "ADD_FEEDBACK", feature_name: "Add Feedback" },
     ],
   },
+  {
+    tab_number: 12,
+    tab_unique_name: "LEADS_TRACKER",
+    tab_name: "Leads Tracker",
+    tab_path: "/leadsTracker",
+    features: [
+      { feature_unique_name: "VIEW_LEADS", feature_name: "View Leads" },
+      { feature_unique_name: "VIEW_LEADS_MOBILE_NUMBER", feature_name: "View Lead Mobile Number" },
+      { feature_unique_name: "EDIT_LEAD", feature_name: "Edit Lead" },
+      { feature_unique_name: "DELETE_LEAD", feature_name: "Delete Lead" },
+      { feature_unique_name: "VIEW_LEADS_STATUS", feature_name: "View Lead Status" },
+      { feature_unique_name: "CHANGE_LEAD_STATUS", feature_name: "Change Lead Status" },
+      { feature_unique_name: "EXPORT_LEADS", feature_name: "Export Leads" },
+    ],
+  },
 ];

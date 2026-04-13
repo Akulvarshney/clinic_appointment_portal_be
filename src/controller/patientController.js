@@ -109,7 +109,12 @@ export const clientDetailsController = async (req, res) => {
       where: { id: clientId },
       include: {
         users: true, // fetch linked user
-        appointments: true, // fetch appointments
+        appointments: {
+        include: {
+          services: true, // 👈 this will fetch service details
+        },
+      },
+
         reminder: true, // fetch reminders
         client_organization_category: {
           where: orgId ? { organization_id: orgId } : {},
