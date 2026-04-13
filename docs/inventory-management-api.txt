@@ -1,0 +1,509 @@
+================================================================================
+  INVENTORY & BILLING — HTTP API REFERENCE
+================================================================================
+
+  Part A — Inventory (SKU, batches, stock ledger)
+    Base URL: /api/v1/clientadmin/inventoryManagement
+
+  Part B — Invoices & bills (mixed service + inventory line items)
+    Base URL: /api/v1/clientadmin/invoices
+    Inventory lines are stored without GST: the server sets tax fields to zero and
+    final line amount = rate × quantity − line_discount_share. Bill header totals
+    (sub_total, total_tax, grand_total, etc.) should be computed by the client to
+    match (services may still carry GST).
+
+  Full examples:
+    https://<host>/api/v1/clientadmin/inventoryManagement/createItem
+    https://<host>/api/v1/clientadmin/invoices/create
+
+  App mount (all v1 routes):
+    /api/v1/  →  see src/routes/index.js and app.js
+
+  Authentication
+    Header:  Authorization: Bearer <JWT>
+    Client-admin routes use loginMiddleware (session must be valid).
+
+  Invoice create / quotation create (Part B only)
+    Middleware: checkOrgInfoComplete — requires organization_billing_details.is_approved
+    to be APPROVED for the organization_id in the body; otherwise HTTP 501.
+
+  Success response (typical)
+    { "success": true, "message": "...", "data": { ... }, "status": 200 }
+
+  Error response (typical)
+    { "message": "..." }
+    HTTP status: 400 validation, 404 not found, 409 conflict (duplicate SKU / batch), 500 server
+
+  Data model (batch-level stock and pricing)
+    inventory_items     — SKU / product master: name, sku, unit, reorder_level, etc.
+                          No per-SKU quantity, cost, selling price, MRP, or GST — stock and
+                          unit economics live only on batches.
+    inventory_batches   — Many rows per SKU: batch_number, expiry_date, quantity_on_hand,
+                          optional cost_price, selling_price, mrp (all per batch/lot).
+                          Unique per product: (inventory_item_id, batch_number).
+    inventory_transactions — Movements tied to a batch (inventory_batch_id) where applicable.
+
+================================================================================
+  ENDPOINT SUMMARY — INVENTORY (/clientadmin/inventoryManagement)
+================================================================================
+
+  POST   /createItem       Create SKU; optional first batch if initialQuantity > 0
+  GET    /getBatches       List batches for one SKU (for billing / stock UI)
+  POST   /addBatchStock    Create a new batch/lot with initial quantity
+  PUT    /updateBatch      Update one batch: cost / selling / MRP / expiry (by inventoryBatchId)
+  GET    /getItems         Paginated list of SKUs (+ batch summary + total_quantity_on_hand)
+  GET    /getItemById      One SKU with full batches[] + total_quantity_on_hand
+  PUT    /updateItem       Update SKU master fields only (not batch quantities)
+  POST   /deleteItem       Soft-delete SKU and its batches
+  POST   /adjustStock      Stock IN / OUT / adjustment on an existing batch (by inventoryBatchId)
+  GET    /getTransactions  Paginated ledger (optional filters by itemId, batchId)
+  GET    /getItemFullDetails  Audit: SKU + all batches + transactions + bills that reference this SKU
+
+================================================================================
+  ENDPOINT SUMMARY — INVOICES & BILLS (/clientadmin/invoices)
+================================================================================
+
+  POST   /create                 Create invoice (default bill_type INVOICE); mixed line_items;
+                                 stock deducted for INVENTORY lines (see section 12)
+  POST   /quotation/create       Create or update quotation (bill_type QUOTATION); same line_items;
+                                 no stock movement
+  GET    /getBills               Paginated list of bills (filters in query)
+  POST   /saveAsInvoices         Convert quotation → invoice (query: id, orgId); stock deducted on new invoice
+  GET    /billDetail/:id         Full bill + bill_line_items (ordered: line_position, created_at)
+
+  PDF (not under /clientadmin; no loginMiddleware in src/routes/index.js — verify security for your deployment)
+  GET    /api/v1/invoice/:billId     Standard invoice PDF
+  GET    /api/v1/invoice2/:billId    Thermal invoice PDF
+
+================================================================================
+  1. CREATE ITEM (SKU)
+================================================================================
+  POST /createItem
+  Content-Type: application/json
+
+  Body fields
+    orgId             string UUID   REQUIRED — organization
+    name              string        REQUIRED — product name
+    sku               string        optional — unique per org if set
+    description       string        optional
+    unit              string        optional — default "unit"
+    reorderLevel      number        optional
+    initialQuantity   number        optional — default 0
+    batchNumber       string        REQUIRED when initialQuantity > 0 (first batch label)
+    expiryDate        string (ISO)  optional — expiry for that first batch
+
+  Notes
+    Create SKU does not accept cost, selling price, or MRP — those are set only per batch
+    via POST /addBatchStock (optional fields) or PUT /updateBatch.
+    If initialQuantity > 0, creates one inventory_batches row + one STOCK_IN transaction
+    (batch has no prices until you /addBatchStock for a new lot or /updateBatch on that batch).
+    SKUs with initialQuantity 0 have no batches until /addBatchStock.
+
+================================================================================
+  2. LIST BATCHES FOR ONE SKU
+================================================================================
+  GET /getBatches?orgId=<uuid>&itemId=<uuid>
+
+  Query
+    orgId   REQUIRED
+    itemId  REQUIRED — inventory_items.id
+
+  Response data
+    Array of batches: id, batch_number, expiry_date, quantity_on_hand,
+    cost_price, selling_price, mrp (nullable), is_valid, timestamps.
+    Sorted by expiry_date asc, then batch_number.
+
+================================================================================
+  3. ADD NEW BATCH (NEW LOT)
+================================================================================
+  POST /addBatchStock
+  Content-Type: application/json
+
+  Body
+    orgId       string UUID   REQUIRED
+    itemId      string UUID   REQUIRED — parent SKU
+    batchNumber string       REQUIRED — must be new for this SKU
+    quantity    number       REQUIRED — positive; initial qty in this batch
+    expiryDate  string (ISO) optional
+    costPrice   number       optional — per-unit cost for this batch
+    sellingPrice number      optional — per-unit selling rate for this batch
+    mrp         number       optional — MRP for this batch
+    remarks     string       optional
+
+  Notes
+    Returns 409 if batch_number already exists for that SKU — use /adjustStock with that
+    batch’s inventoryBatchId to add more quantity instead.
+
+================================================================================
+  4. UPDATE BATCH (PRICING / EXPIRY)
+================================================================================
+  PUT /updateBatch
+  Content-Type: application/json
+
+  Body
+    orgId         string UUID   REQUIRED
+    batchId       string UUID   REQUIRED — inventory_batches.id (same as inventoryBatchId elsewhere)
+    costPrice     number       optional — null or "" clears; omit to leave unchanged
+    sellingPrice  number       optional — same
+    mrp           number       optional — same
+    expiryDate    string (ISO) optional — omit to leave unchanged; null clears expiry
+
+  Does not change quantity_on_hand; use /adjustStock for stock moves.
+
+================================================================================
+  5. LIST ITEMS (PAGINATED)
+================================================================================
+  GET /getItems?orgId=<uuid>&page=1&limit=10&search=
+
+  Query
+    orgId   REQUIRED
+    page    optional — default 1
+    limit   optional — default 10
+    search  optional — matches name, sku, description, or any batch_number under org
+
+  Response data
+    {
+      "items": [
+        {
+          ...sku fields,
+          "inventory_batches": [
+            { id, batch_number, expiry_date, quantity_on_hand, cost_price, selling_price, mrp }
+          ],
+          "total_quantity_on_hand": <sum of batch quantities>
+        }
+      ],
+      "totalRecords", "currentPage", "totalPages"
+    }
+
+================================================================================
+  6. GET ITEM BY ID
+================================================================================
+  GET /getItemById?orgId=<uuid>&itemId=<uuid>
+
+  Response
+    SKU + inventory_batches[] + total_quantity_on_hand
+
+================================================================================
+  7. UPDATE ITEM (SKU MASTER ONLY)
+================================================================================
+  PUT /updateItem
+  Content-Type: application/json
+
+  Body
+    orgId, itemId     REQUIRED
+    name, sku, description, unit, reorderLevel — all optional (partial update)
+
+  Does not change batch quantities or batch pricing; use /adjustStock, /addBatchStock,
+  or /updateBatch for stock and per-batch cost / sell / MRP.
+
+================================================================================
+  8. DELETE ITEM (SOFT)
+================================================================================
+  POST /deleteItem
+  Content-Type: application/json
+
+  Body: orgId, itemId (both REQUIRED)
+  Sets SKU and its batches to inactive (is_valid = false).
+
+================================================================================
+  9. ADJUST STOCK (PER BATCH)
+================================================================================
+  POST /adjustStock
+  Content-Type: application/json
+
+  Body
+    orgId                 string UUID   REQUIRED
+    inventoryBatchId      string UUID   REQUIRED — from GET /getBatches
+    transactionType       string        REQUIRED — one of:
+                            STOCK_IN      — add quantity to this batch
+                            STOCK_OUT     — remove quantity from this batch
+                            ADJUSTMENT    — set absolute on-hand in this batch
+    quantity              number        REQUIRED for STOCK_IN / STOCK_OUT (positive amount)
+    adjustmentToQuantity  number        REQUIRED for ADJUSTMENT (new absolute qty ≥ 0)
+    remarks               string        optional
+
+================================================================================
+  10. TRANSACTIONS (LEDGER)
+================================================================================
+  GET /getTransactions?orgId=<uuid>&itemId=<uuid>&batchId=<uuid>&page=1&limit=20
+
+  Query
+    orgId   REQUIRED
+    itemId  optional — filter by SKU
+    batchId optional — filter by inventory_batches.id
+    page    optional — default 1
+    limit   optional — default 20
+
+  Each row includes nested inventory_items (id, name, sku, unit) and inventory_batches
+  (batch_number, expiry, cost_price, selling_price, mrp).
+
+================================================================================
+  11. FULL DETAILS / AUDIT (ITEM + BATCHES + TX + BILLS)
+================================================================================
+  GET /getItemFullDetails?orgId=<uuid>&itemId=<uuid>&transactionsPage=1&transactionsLimit=200&includeInactiveItem=false
+
+  Query
+    orgId                 REQUIRED
+    itemId                REQUIRED — inventory_items.id
+    transactionsPage      optional — default 1 (pagination for stock ledger rows)
+    transactionsLimit     optional — default 200, max 1000 per request
+    includeInactiveItem   optional — "true" / "1" to load a soft-deleted SKU
+
+  Response data (single object)
+    item —
+      SKU master + inventory_batches[] + total_quantity_on_hand
+    batches —
+      same batch rows as on item (all lots for this SKU)
+    transactions —
+      rows[] — ledger entries with inventory_batches + source_bill (invoice linked to STOCK_OUT from billing)
+      totalRecords, currentPage, pageSize, totalPages
+    bills —
+      array of { bill, inventory_lines[] }
+      bill: invoice header (invoice_number, bill_type INVOICE|QUOTATION, dates, grand_total, status, client)
+      inventory_lines: bill_line_items for this SKU only (qty, rate, taxes, inventory_batch_id, inventory_batch_number, nested batch snapshot)
+    billsCount — number of distinct bills
+
+  Use this for traceability: which invoices/quotations used this product and which batch lines were billed.
+
+================================================================================
+  12. INVOICES & BILLS — MIXED SERVICE + INVENTORY LINES
+================================================================================
+
+  Base URL:
+    /api/v1/clientadmin/invoices
+
+  Routes (src/routes/clientAdminRoutes/invoiceManagementRoutes.js)
+    POST   /create              → createInvoice        (+ checkOrgInfoComplete)
+    POST   /quotation/create    → createQuotation      (+ checkOrgInfoComplete)
+    GET    /getBills            → getInvoices
+    POST   /saveAsInvoices      → saveAsInvoices
+    GET    /billDetail/:id      → getBillById
+
+  ---------------------------------------------------------------------------
+  12.1 POST /create — create invoice
+  ---------------------------------------------------------------------------
+  Content-Type: application/json
+
+  Header: Authorization: Bearer <JWT>
+
+  Body (top-level; same shape as before inventory, plus mixed line_items)
+    organization_id     string UUID   REQUIRED
+    client_id           string UUID   REQUIRED
+    invoice_date        string (ISO)  REQUIRED
+    line_items          array         REQUIRED — non-empty; see 12.5
+
+    bankCharges, due_date, sub_total, discount_amount, discount_percentage,
+    taxable_after_discount, total_cgst, total_sgst, total_igst, total_tax,
+    shipping_charges, round_off_amount, grand_total_before_rounding, grand_total,
+    bill_to_text, bill_from_text, notes, terms, round_off_enabled — as per existing billing
+
+    bill_type           optional — default "INVOICE"
+    status              optional — default "SUBMITTED"
+
+  Behavior
+    - Persists one bills row + bill_line_items (line_position = array index).
+    - For bill_type INVOICE: after insert, deductInventoryForInvoiceBill runs in the same transaction
+      for each line resolved as INVENTORY (see 12.6).
+
+  ---------------------------------------------------------------------------
+  12.2 POST /quotation/create — create or update quotation
+  ---------------------------------------------------------------------------
+  Same body shape as /create, with these differences:
+    bill_type           default "QUOTATION"
+    id                  optional — if present, updates that bill (must exist); else creates
+
+  No stock deduction for quotations (even if line_items include inventory lines).
+
+  ---------------------------------------------------------------------------
+  12.3 GET /getBills — list bills
+  ---------------------------------------------------------------------------
+  Query (all optional except organization_id)
+    organization_id     REQUIRED
+    client_id           optional
+    status              optional
+    search              optional — matches invoice_number, bill_to_text (case-insensitive)
+    bill_type           optional — e.g. INVOICE | QUOTATION
+    page                optional — default 1
+    limit               optional — default 10
+
+  Response: paginated list; each row includes number_of_services = count of line items
+    (name is historical — counts all lines including inventory).
+
+  ---------------------------------------------------------------------------
+  12.4 POST /saveAsInvoices — quotation → invoice
+  ---------------------------------------------------------------------------
+  Query (not body)
+    id                  REQUIRED — quotation bill id (UUID)
+    orgId               REQUIRED — organization id (used for new invoice number)
+
+  Creates a new bills row with bill_type INVOICE, copies quotation line items (including
+  line_kind, inventory_item_id, inventory_batch_id, inventory_batch_number), then runs
+  stock deduction for INVENTORY lines on the new invoice.
+
+  ---------------------------------------------------------------------------
+  12.5 line_items[] — each element (request payload)
+  ---------------------------------------------------------------------------
+  Kind is determined by line_kind or by ids (src/services/billInventoryService.js):
+
+    line_kind           optional — "SERVICE" | "INVENTORY"
+                        If omitted: only inventory_item_id → INVENTORY; only service_id → SERVICE.
+                        If both service_id and inventory_item_id are set without line_kind → 400.
+
+  SERVICE line (line_kind SERVICE or inferred)
+    service_id          REQUIRED
+    service_name, description, quantity, rate, amount,
+    gst_percentage, line_discount_share, taxable_amount,
+    cgst_amount, sgst_amount, igst_amount, total_tax_amount, final_amount
+                        — required by existing validation/parsing (numeric fields parsed with parseFloat)
+
+  INVENTORY line (line_kind INVENTORY or inferred)
+    inventory_item_id   REQUIRED — must belong to organization, is_valid
+    inventory_batch_id  preferred — UUID from GET .../inventoryManagement/getBatches
+    inventory_batch_number  optional — used if batch_id omitted; must match a batch for that SKU in org
+    service_name, description — used for display (PDF/table: service_name || description)
+    quantity            REQUIRED positive for stock out (when bill is INVOICE)
+    rate, amount, line_discount_share — send as for display/calculation; server persists
+    gst_percentage, cgst_amount, sgst_amount, igst_amount, total_tax_amount as 0 for inventory
+    taxable_amount, final_amount — server normalizes: taxable = max(0, rate×quantity − line_discount_share),
+                        final_amount = taxable (no tax on top for inventory)
+
+  Stored on bill_line_items: line_position, line_kind, service_id (nullable), inventory_item_id (nullable),
+  inventory_batch_id, inventory_batch_number, plus amounts/taxes and service_name/description.
+
+  ---------------------------------------------------------------------------
+  12.6 Stock deduction rules (INVOICE only)
+  ---------------------------------------------------------------------------
+  Applies to: POST /create when bill_type is INVOICE; POST /saveAsInvoices (new invoice).
+
+  For each INVENTORY line:
+    - Batch resolved by inventory_batch_id, else by inventory_batch_number for that inventory_item_id.
+    - 400 if batch missing, quantity invalid, or quantity_on_hand < quantity sold.
+    - Updates inventory_batches.quantity_on_hand; creates inventory_transactions (STOCK_OUT) with
+      source_bill_id, remarks referencing invoice number.
+
+  Quotations: no deduction. Manual stock: POST .../inventoryManagement/adjustStock.
+
+  ---------------------------------------------------------------------------
+  12.7 GET /billDetail/:id — single bill
+  ---------------------------------------------------------------------------
+  Path: id — bill UUID
+
+  Returns full bill with clients, organizations, bill_line_items ordered by:
+    line_position asc, created_at asc
+
+  Each line includes line_kind, service_id, inventory_item_id, inventory_batch_id,
+  inventory_batch_number, and other line fields (include does not auto-expand inventory_items
+  in the current controller — join client-side or extend the query if needed).
+
+================================================================================
+  EXAMPLE — create item with first batch
+================================================================================
+
+curl -s -X POST "https://<host>/api/v1/clientadmin/inventoryManagement/createItem" \
+  -H "Authorization: Bearer <JWT>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "orgId": "<organization-uuid>",
+    "name": "Paracetamol 500mg",
+    "sku": "PARA-500",
+    "unit": "strip",
+    "initialQuantity": 100,
+    "batchNumber": "BATCH-A1",
+    "expiryDate": "2027-12-31"
+  }'
+
+  To set cost / selling / MRP, use /addBatchStock (new lot) or /updateBatch on an existing batch id.
+
+================================================================================
+  EXAMPLE — list batches then stock out
+================================================================================
+
+  GET /api/v1/clientadmin/inventoryManagement/getBatches?orgId=<org>&itemId=<item>
+
+  POST /api/v1/clientadmin/inventoryManagement/adjustStock
+  {
+    "orgId": "<org>",
+    "inventoryBatchId": "<batch-uuid-from-getBatches>",
+    "transactionType": "STOCK_OUT",
+    "quantity": 10,
+    "remarks": "Damaged"
+  }
+
+  PUT /api/v1/clientadmin/inventoryManagement/updateBatch
+  {
+    "orgId": "<org>",
+    "batchId": "<batch-uuid-from-getBatches>",
+    "sellingPrice": 38,
+    "mrp": 45,
+    "expiryDate": "2028-06-30"
+  }
+
+================================================================================
+  EXAMPLE — invoice with one service line + one inventory line (shape only)
+================================================================================
+
+  POST /api/v1/clientadmin/invoices/create
+  Authorization: Bearer <JWT>
+  Content-Type: application/json
+
+  {
+    "organization_id": "<org-uuid>",
+    "client_id": "<client-uuid>",
+    "invoice_date": "2026-04-12",
+    "sub_total": 1000,
+    "discount_amount": 0,
+    "discount_percentage": 0,
+    "taxable_after_discount": 1000,
+    "total_cgst": 0,
+    "total_sgst": 0,
+    "total_igst": 0,
+    "total_tax": 0,
+    "shipping_charges": 0,
+    "round_off_amount": 0,
+    "grand_total_before_rounding": 1000,
+    "grand_total": 1000,
+    "bill_to_text": "...",
+    "bill_from_text": "...",
+    "line_items": [
+      {
+        "line_kind": "SERVICE",
+        "service_id": "<service-uuid>",
+        "service_name": "Consultation",
+        "description": "",
+        "quantity": 1,
+        "rate": 500,
+        "amount": 500,
+        "gst_percentage": 0,
+        "line_discount_share": 0,
+        "taxable_amount": 500,
+        "cgst_amount": 0,
+        "sgst_amount": 0,
+        "igst_amount": 0,
+        "total_tax_amount": 0,
+        "final_amount": 500
+      },
+      {
+        "line_kind": "INVENTORY",
+        "inventory_item_id": "<inventory_items.id>",
+        "inventory_batch_id": "<inventory_batches.id>",
+        "service_name": "Paracetamol 500mg",
+        "description": "Batch sale",
+        "quantity": 10,
+        "rate": 50,
+        "amount": 500,
+        "gst_percentage": 0,
+        "line_discount_share": 0,
+        "taxable_amount": 500,
+        "cgst_amount": 0,
+        "sgst_amount": 0,
+        "igst_amount": 0,
+        "total_tax_amount": 0,
+        "final_amount": 500
+      }
+    ]
+  }
+
+  Replace numeric/tax fields with values consistent with your frontend calculations.
+  Organization billing module must be APPROVED (checkOrgInfoComplete).
+
+================================================================================

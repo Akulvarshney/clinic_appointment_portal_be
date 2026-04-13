@@ -1,4 +1,10 @@
 import prisma from "../prisma.js";
+import {
+  assertMixedBillLinesPayload,
+  billLineItemsOrderBy,
+  deductInventoryForInvoiceBill,
+  mapLineItemToBillRow,
+} from "../services/billInventoryService.js";
 
 const getCurrentFinancialYear = () => {
   const now = new Date();
@@ -203,6 +209,8 @@ export const createInvoice = async (req, res) => {
       });
     }
 
+    assertMixedBillLinesPayload(line_items);
+
     // Generate invoice number
     const invoiceNumber = await generateInvoiceNumber(organization_id);
 
@@ -243,27 +251,21 @@ export const createInvoice = async (req, res) => {
         },
       });
 
-      // Create line items
-      const lineItemsData = line_items.map((item) => ({
-        bill_id: bill.id,
-        service_id: item.service_id,
-        service_name: item.service_name,
-        description: item.description,
-        quantity: parseFloat(item.quantity),
-        rate: parseFloat(item.rate),
-        amount: parseFloat(item.amount),
-        gst_percentage: parseFloat(item.gst_percentage) || 0,
-        line_discount_share: parseFloat(item.line_discount_share) || 0,
-        taxable_amount: parseFloat(item.taxable_amount),
-        cgst_amount: parseFloat(item.cgst_amount) || 0,
-        sgst_amount: parseFloat(item.sgst_amount) || 0,
-        igst_amount: parseFloat(item.igst_amount) || 0,
-        total_tax_amount: parseFloat(item.total_tax_amount) || 0,
-        final_amount: parseFloat(item.final_amount),
-      }));
+      // Create line items: one ordered list — any mix of SERVICE and INVENTORY rows
+      const lineItemsData = line_items.map((item, index) =>
+        mapLineItemToBillRow(bill.id, item, index)
+      );
 
       await tx.bill_line_items.createMany({
         data: lineItemsData,
+      });
+
+      await deductInventoryForInvoiceBill(tx, {
+        organizationId: organization_id,
+        billId: bill.id,
+        invoiceNumber: bill.invoice_number,
+        billType: bill.bill_type,
+        lineItemsInput: line_items,
       });
 
       return bill;
@@ -296,7 +298,7 @@ export const createInvoice = async (req, res) => {
       });
     }
 
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
       message: error.message || "Internal server error while creating invoice",
     });
@@ -382,6 +384,8 @@ export const createQuotation = async (req, res) => {
       });
     }
 
+    assertMixedBillLinesPayload(line_items);
+
     // If updating, validate that the bill exists
     if (isUpdate) {
       const existingBill = await prisma.bills.findUnique({
@@ -423,7 +427,7 @@ export const createQuotation = async (req, res) => {
       bill_from_text,
       notes,
       terms,
-       bank_charges: bankCharges,
+      bank_charges: bankCharges,
       round_off_enabled: round_off_enabled === true,
       bill_type,
       status,
@@ -460,24 +464,10 @@ export const createQuotation = async (req, res) => {
         });
       }
 
-      // Create line items
-      const lineItemsData = line_items.map((item) => ({
-        bill_id: bill.id,
-        service_id: item.service_id,
-        service_name: item.service_name,
-        description: item.description,
-        quantity: parseFloat(item.quantity),
-        rate: parseFloat(item.rate),
-        amount: parseFloat(item.amount),
-        gst_percentage: parseFloat(item.gst_percentage) || 0,
-        line_discount_share: parseFloat(item.line_discount_share) || 0,
-        taxable_amount: parseFloat(item.taxable_amount),
-        cgst_amount: parseFloat(item.cgst_amount) || 0,
-        sgst_amount: parseFloat(item.sgst_amount) || 0,
-        igst_amount: parseFloat(item.igst_amount) || 0,
-        total_tax_amount: parseFloat(item.total_tax_amount) || 0,
-        final_amount: parseFloat(item.final_amount),
-      }));
+      // Create line items: one ordered list — any mix of SERVICE and INVENTORY (no stock move for QUOTATION)
+      const lineItemsData = line_items.map((item, index) =>
+        mapLineItemToBillRow(bill.id, item, index)
+      );
 
       await tx.bill_line_items.createMany({
         data: lineItemsData,
@@ -516,7 +506,7 @@ export const createQuotation = async (req, res) => {
       });
     }
 
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
       message:
         error.message ||
@@ -683,12 +673,14 @@ export const saveAsInvoices = async (req, res) => {
       await prisma.organization_billing_details.findUnique({
         where: { organization_id: orgId },
       });
-   // console.log("orgBillingDetails ", orgBillingDetails);
+    // console.log("orgBillingDetails ", orgBillingDetails);
 
     const result = await prisma.$transaction(async (tx) => {
       const quotation = await tx.bills.findUnique({
         where: { id },
-        include: { bill_line_items: true },
+        include: {
+          bill_line_items: { orderBy: billLineItemsOrderBy },
+        },
       });
 
       if (!quotation) {
@@ -727,14 +719,19 @@ export const saveAsInvoices = async (req, res) => {
           total_sgst: quotation.total_sgst,
           total_tax: quotation.total_tax,
           brand_name_text: quotation.brand_name_text,
-          bank_charges : quotation.bank_charges
+          bank_charges: quotation.bank_charges
         },
       });
 
       if (quotation.bill_line_items.length > 0) {
-        const newLineItems = quotation.bill_line_items.map((item) => ({
+        const newLineItems = quotation.bill_line_items.map((item, idx) => ({
           bill_id: newInvoice.id,
+          line_position: item.line_position ?? idx,
+          line_kind: item.line_kind ?? "SERVICE",
           service_id: item.service_id,
+          inventory_item_id: item.inventory_item_id,
+          inventory_batch_id: item.inventory_batch_id,
+          inventory_batch_number: item.inventory_batch_number,
           quantity: item.quantity,
           amount: item.amount,
           cgst_amount: item.cgst_amount,
@@ -752,6 +749,14 @@ export const saveAsInvoices = async (req, res) => {
 
         await tx.bill_line_items.createMany({
           data: newLineItems,
+        });
+
+        await deductInventoryForInvoiceBill(tx, {
+          organizationId: quotation.organization_id,
+          billId: newInvoice.id,
+          invoiceNumber: newInvoice.invoice_number,
+          billType: "INVOICE",
+          lineItemsInput: quotation.bill_line_items,
         });
       }
 
@@ -771,7 +776,7 @@ export const saveAsInvoices = async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({
+    res.status(err.statusCode || 500).json({
       success: false,
       message: err.message || "Error converting quotation",
     });
@@ -794,7 +799,7 @@ export const getBillById = async (req, res) => {
     const bill = await prisma.bills.findUnique({
       where: { id },
       include: {
-        bill_line_items: true,
+        bill_line_items: { orderBy: billLineItemsOrderBy },
         clients: true,
         organizations: true,
       },
@@ -808,9 +813,9 @@ export const getBillById = async (req, res) => {
     const billWithComputedFields = {
       ...bill,
       bank_charges_applied: (bill.bank_charges &&
-                            bill.bank_charges !== "" &&
-                            bill.bank_charges !== "0" &&
-                            bill.bank_charges !== "0.00")
+        bill.bank_charges !== "" &&
+        bill.bank_charges !== "0" &&
+        bill.bank_charges !== "0.00")
     };
 
     return res.status(200).json({

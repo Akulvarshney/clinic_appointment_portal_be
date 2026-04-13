@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { billLineItemsOrderBy } from "../services/billInventoryService.js";
 import PDFDocument from "pdfkit";
 import fs from "fs";
 import path from "path";
@@ -20,6 +21,14 @@ const withRupee = (value) => {
   return `${numStr}`;
 };
 
+/** Bill lines that sell stock (no GST on inventory in this product). */
+function isInventoryBillLine(item) {
+  return (
+    item.line_kind === "INVENTORY" ||
+    (item.inventory_item_id != null && item.service_id == null)
+  );
+}
+
 export const generateInvoicePdf = async (req, res) => {
   const { billId } = req.params;
   if (!billId) return res.status(400).json({ error: "Bill ID is required" });
@@ -27,7 +36,11 @@ export const generateInvoicePdf = async (req, res) => {
   try {
     const bill = await prisma.bills.findUnique({
       where: { id: billId },
-      include: { bill_line_items: true, organizations: true, clients: true },
+      include: {
+        bill_line_items: { orderBy: billLineItemsOrderBy },
+        organizations: true,
+        clients: true,
+      },
     });
     console.log("bill suman ", bill);
 
@@ -143,9 +156,9 @@ export const generateInvoicePdf = async (req, res) => {
 
     const taxCols = isIntraState
       ? [
-          { label: "CGST", width: 0.09, key: "cgst_amount", align: "right" },
-          { label: "SGST", width: 0.09, key: "sgst_amount", align: "right" },
-        ]
+        { label: "CGST", width: 0.09, key: "cgst_amount", align: "right" },
+        { label: "SGST", width: 0.09, key: "sgst_amount", align: "right" },
+      ]
       : [{ label: "IGST", width: 0.18, key: "igst_amount", align: "right" }];
 
     const totalCol = {
@@ -175,10 +188,21 @@ export const generateInvoicePdf = async (req, res) => {
     // --- Data Rows ---
     bill.bill_line_items.forEach((item) => {
       x = leftMargin;
+      const invLine = isInventoryBillLine(item);
       cols.forEach((col, i) => {
         let value = "N/A";
         if (col.key === "service_name") {
           value = item.service_name || item.description || "N/A";
+        } else if (
+          invLine &&
+          [
+            "gst_percentage",
+            "cgst_amount",
+            "sgst_amount",
+            "igst_amount",
+          ].includes(col.key)
+        ) {
+          value = "—";
         } else if (col.key === "gst_percentage") {
           const pct = item.gst_percentage;
           value = pct != null ? `${pct}%` : "N/A";
@@ -222,8 +246,8 @@ export const generateInvoicePdf = async (req, res) => {
     };
 
     addRow("Sub Total", withRupee(bill.sub_total));
-   
-    
+
+
     if (
       String(bill.discount_amount) !== "0" &&
       String(bill.discount_amount) !== "0.00"
@@ -235,8 +259,8 @@ export const generateInvoicePdf = async (req, res) => {
     }
     addRow("Taxable After Discount", withRupee(bill.taxable_after_discount));
     addRow("Total Tax", withRupee(bill.total_tax));
-     if(bill.bank_charges != "" && bill.bank_charges ){
-    addRow("Bank Charges (2%)", withRupee(bill.bank_charges));
+    if (bill.bank_charges != "" && bill.bank_charges) {
+      addRow("Bank Charges (2%)", withRupee(bill.bank_charges));
     }
 
     if (
@@ -285,7 +309,7 @@ export const generateInvoicePdf = async (req, res) => {
     const signatureY = Math.max(currentY + 20, minSignatureY);
 
     doc.fontSize(10).font(baseFont);
-    
+
     // Left: "For [Company Name]"
     const forText = "For " + (bill?.brand_name_text || org?.name || "");
     doc.text(forText, leftMargin, signatureY);
@@ -324,7 +348,11 @@ export const generateThermalInvoicePdf = async (req, res) => {
   try {
     const bill = await prisma.bills.findUnique({
       where: { id: billId },
-      include: { bill_line_items: true, organizations: true, clients: true },
+      include: {
+        bill_line_items: { orderBy: billLineItemsOrderBy },
+        organizations: true,
+        clients: true,
+      },
     });
 
     if (!bill) return res.status(404).json({ error: "Bill not found" });
@@ -485,8 +513,12 @@ export const generateThermalInvoicePdf = async (req, res) => {
       printDetail("Qty", item.quantity || "1");
       printDetail("Rate", withRupee(item.rate));
 
-      // ➕ Explicitly show GST Percentage
-      if (item.gst_percentage != null && item.gst_percentage !== "") {
+      if (
+        !isInventoryBillLine(item) &&
+        item.gst_percentage != null &&
+        item.gst_percentage !== "" &&
+        parseFloat(item.gst_percentage) > 0
+      ) {
         printDetail("GST", `${item.gst_percentage}%`);
       }
 
@@ -540,7 +572,7 @@ export const generateThermalInvoicePdf = async (req, res) => {
 
     // === Summary Section ===
     printLine("Sub Total:", withRupee(bill.sub_total));
- 
+
 
     if (
       bill.discount_amount &&
@@ -569,7 +601,7 @@ export const generateThermalInvoicePdf = async (req, res) => {
       printLine("Total Tax:", withRupee(bill.total_tax));
     }
 
-  
+
 
     // Breakdown only if needed (already shown above, but A4 shows both — keep for clarity)
     if (isIntraState) {
@@ -584,8 +616,8 @@ export const generateThermalInvoicePdf = async (req, res) => {
         printLine("IGST:", withRupee(bill.total_igst));
       }
     }
-      if(bill.bank_charges != "" && bill.bank_charges ){
-    printLine("Bank Charges (2%)", withRupee(bill.bank_charges));
+    if (bill.bank_charges != "" && bill.bank_charges) {
+      printLine("Bank Charges (2%)", withRupee(bill.bank_charges));
     }
 
     if (

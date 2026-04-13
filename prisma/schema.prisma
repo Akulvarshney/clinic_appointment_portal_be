@@ -83,6 +83,9 @@ model organizations {
   roles                        roles[]
   services                     services[]
   user_organizations           user_organizations[]
+  inventory_items              inventory_items[]
+  inventory_batches            inventory_batches[]
+  inventory_transactions       inventory_transactions[]
 }
 
 model roles {
@@ -428,6 +431,7 @@ model bills {
   brand_name_text             String?           @db.VarChar
   bank_charges                String?           @db.VarChar
   bill_line_items             bill_line_items[]
+  inventory_transactions_from_bill inventory_transactions[] @relation("inventory_tx_source_bill")
   clients                     clients           @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   organizations               organizations     @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
@@ -435,26 +439,38 @@ model bills {
 }
 
 model bill_line_items {
-  id                  String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  bill_id             String   @db.Uuid
-  service_id          String   @db.Uuid
-  quantity            Decimal  @default(1) @db.Decimal(10, 3)
-  created_at          DateTime @default(now()) @db.Timestamptz(6)
-  updated_at          DateTime @default(now()) @db.Timestamptz(6)
-  amount              Decimal  @db.Decimal(12, 2)
-  cgst_amount         Decimal  @default(0) @db.Decimal(12, 2)
-  description         String
-  final_amount        Decimal  @db.Decimal(12, 2)
-  gst_percentage      Decimal  @default(0) @db.Decimal(5, 2)
-  igst_amount         Decimal  @default(0) @db.Decimal(12, 2)
-  line_discount_share Decimal  @default(0) @db.Decimal(12, 2)
-  rate                Decimal  @db.Decimal(12, 2)
-  service_name        String
-  sgst_amount         Decimal  @default(0) @db.Decimal(12, 2)
-  taxable_amount      Decimal  @db.Decimal(12, 2)
-  total_tax_amount    Decimal  @default(0) @db.Decimal(12, 2)
-  bills               bills    @relation(fields: [bill_id], references: [id], onDelete: Cascade)
-  services            services @relation(fields: [service_id], references: [id], onDelete: NoAction)
+  id                     String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  bill_id                String         @db.Uuid
+  /** Order of this row on the bill (0-based). Mixed SERVICE + INVENTORY lines share one ordered list. */
+  line_position          Int            @default(0)
+  line_kind              bill_line_kind @default(SERVICE)
+  service_id             String?        @db.Uuid
+  inventory_item_id      String?        @db.Uuid
+  inventory_batch_id     String?        @db.Uuid
+  inventory_batch_number String?        @db.VarChar(100)
+  quantity               Decimal        @default(1) @db.Decimal(10, 3)
+  created_at             DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime       @default(now()) @db.Timestamptz(6)
+  amount                 Decimal        @db.Decimal(12, 2)
+  cgst_amount            Decimal        @default(0) @db.Decimal(12, 2)
+  description            String
+  final_amount           Decimal        @db.Decimal(12, 2)
+  gst_percentage         Decimal        @default(0) @db.Decimal(5, 2)
+  igst_amount            Decimal        @default(0) @db.Decimal(12, 2)
+  line_discount_share    Decimal        @default(0) @db.Decimal(12, 2)
+  rate                   Decimal        @db.Decimal(12, 2)
+  service_name           String
+  sgst_amount            Decimal        @default(0) @db.Decimal(12, 2)
+  taxable_amount         Decimal        @db.Decimal(12, 2)
+  total_tax_amount       Decimal        @default(0) @db.Decimal(12, 2)
+  bills                  bills          @relation(fields: [bill_id], references: [id], onDelete: Cascade)
+  services               services?      @relation(fields: [service_id], references: [id], onDelete: NoAction)
+  inventory_items        inventory_items? @relation(fields: [inventory_item_id], references: [id], onDelete: NoAction)
+  inventory_batches      inventory_batches? @relation(fields: [inventory_batch_id], references: [id], onDelete: NoAction)
+
+  @@index([bill_id, line_position], map: "idx_bill_line_items_bill_position")
+  @@index([inventory_item_id], map: "idx_bill_line_items_inventory_item_id")
+  @@index([inventory_batch_id], map: "idx_bill_line_items_inventory_batch_id")
 }
 
 model scheduler_job_dtl {
@@ -559,8 +575,90 @@ enum bill_type_enum {
   QUOTATION
 }
 
+enum bill_line_kind {
+  SERVICE
+  INVENTORY
+}
+
 enum bill_module_status {
   APPROVED
   PENDING
   REJECTED
+}
+
+/** Product/SKU master — stock and pricing (cost / sell / MRP) live on inventory_batches. */
+model inventory_items {
+  id                 String                   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organization_id    String                   @db.Uuid
+  name               String                   @db.VarChar(255)
+  sku                String?                  @db.VarChar(100)
+  description        String?
+  unit               String                   @default("unit") @db.VarChar(50)
+  reorder_level      Decimal?                 @db.Decimal(14, 4)
+  is_valid           Boolean                  @default(true)
+  created_at         DateTime?                @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime?                @default(now()) @db.Timestamptz(6)
+  organizations      organizations            @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  inventory_batches  inventory_batches[]
+  inventory_transactions inventory_transactions[]
+  bill_line_items    bill_line_items[]
+
+  @@index([organization_id], map: "idx_inventory_items_organization_id")
+  @@index([organization_id, is_valid], map: "idx_inventory_items_org_valid")
+  @@unique([organization_id, sku], map: "uq_inventory_org_sku")
+}
+
+/** A batch/lot under one SKU — quantity, expiry, and unit economics are per batch. */
+model inventory_batches {
+  id                 String                   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organization_id    String                   @db.Uuid
+  inventory_item_id  String                   @db.Uuid
+  batch_number       String                   @db.VarChar(100)
+  expiry_date        DateTime?                @db.Date
+  quantity_on_hand   Decimal                  @default(0) @db.Decimal(14, 4)
+  cost_price         Decimal?                 @db.Decimal(12, 2)
+  selling_price      Decimal?                 @db.Decimal(12, 2)
+  mrp                Decimal?                 @db.Decimal(12, 2)
+  is_valid           Boolean                  @default(true)
+  created_at         DateTime?                @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime?                @default(now()) @db.Timestamptz(6)
+  organizations      organizations            @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  inventory_items      inventory_items        @relation(fields: [inventory_item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  inventory_transactions inventory_transactions[]
+  bill_line_items      bill_line_items[]
+
+  @@unique([inventory_item_id, batch_number], map: "uq_inv_item_batch_number")
+  @@index([organization_id], map: "idx_inv_batches_org")
+  @@index([inventory_item_id], map: "idx_inv_batches_item")
+}
+
+model inventory_transactions {
+  id                 String                     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organization_id    String                     @db.Uuid
+  inventory_item_id  String                     @db.Uuid
+  inventory_batch_id String?                    @db.Uuid
+  transaction_type   inventory_transaction_type
+  quantity_delta     Decimal                    @db.Decimal(14, 4)
+  quantity_before    Decimal                    @db.Decimal(14, 4)
+  quantity_after     Decimal                    @db.Decimal(14, 4)
+  batch_number       String?                    @db.VarChar(100)
+  remarks            String?                    @db.VarChar(500)
+  created_at         DateTime?                  @default(now()) @db.Timestamptz(6)
+  source_bill_id     String?                    @db.Uuid
+  inventory_items    inventory_items            @relation(fields: [inventory_item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  inventory_batches  inventory_batches?         @relation(fields: [inventory_batch_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  organizations      organizations            @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  source_bill        bills?                     @relation("inventory_tx_source_bill", fields: [source_bill_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@index([organization_id], map: "idx_inventory_tx_organization_id")
+  @@index([inventory_item_id], map: "idx_inventory_tx_item_id")
+  @@index([inventory_batch_id], map: "idx_inventory_tx_batch_id")
+  @@index([source_bill_id], map: "idx_inventory_tx_source_bill_id")
+  @@index([created_at], map: "idx_inventory_tx_created_at")
+}
+
+enum inventory_transaction_type {
+  STOCK_IN
+  STOCK_OUT
+  ADJUSTMENT
 }

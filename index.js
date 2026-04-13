@@ -1,5 +1,5 @@
 import app from "./app.js";
-import dotenv, { config } from "dotenv";
+import dotenv from "dotenv";
 import pkg from "pg";
 import {
   ensureSuperAdminExists,
@@ -39,7 +39,7 @@ pool.on("error", (err) => {
     console.log("✅ Prisma connected");
 
     // await ensureSuperAdminExists();
-   // await syncTabsAndFeatures();
+    // await syncTabsAndFeatures();
 
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);

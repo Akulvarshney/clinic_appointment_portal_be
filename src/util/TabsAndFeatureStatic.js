@@ -193,7 +193,7 @@ export const tabFeatureConfig = [
       },
     ],
   },
-    {
+  {
     tab_number: 11,
     tab_unique_name: "FEEDBACK_MANAGEMENT",
     tab_name: "Feedback",
@@ -201,6 +201,38 @@ export const tabFeatureConfig = [
     features: [
       { feature_unique_name: "VIEW_FEEDBACK", feature_name: "View Feedback" },
       { feature_unique_name: "ADD_FEEDBACK", feature_name: "Add Feedback" },
+    ],
+  },
+  {
+    tab_number: 12,
+    tab_unique_name: "INVENTORY_MANAGEMENT",
+    tab_name: "Inventory",
+    tab_path: "/inventoryManagement",
+    features: [
+      {
+        feature_unique_name: "VIEW_INVENTORY",
+        feature_name: "View Inventory",
+      },
+      {
+        feature_unique_name: "ADD_INVENTORY",
+        feature_name: "Add Inventory Item",
+      },
+      {
+        feature_unique_name: "EDIT_INVENTORY",
+        feature_name: "Edit Inventory Item",
+      },
+      {
+        feature_unique_name: "DELETE_INVENTORY",
+        feature_name: "Remove Inventory Item",
+      },
+      {
+        feature_unique_name: "ADJUST_STOCK",
+        feature_name: "Adjust Stock",
+      },
+      {
+        feature_unique_name: "VIEW_INVENTORY_TRANSACTIONS",
+        feature_name: "View Stock Transactions",
+      },
     ],
   },
 ];
