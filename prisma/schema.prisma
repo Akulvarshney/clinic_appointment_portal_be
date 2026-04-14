@@ -586,7 +586,6 @@ enum bill_module_status {
   REJECTED
 }
 
-/** Product/SKU master — stock and pricing (cost / sell / MRP) live on inventory_batches. */
 model inventory_items {
   id                 String                   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   organization_id    String                   @db.Uuid
@@ -608,7 +607,6 @@ model inventory_items {
   @@unique([organization_id, sku], map: "uq_inventory_org_sku")
 }
 
-/** A batch/lot under one SKU — quantity, expiry, and unit economics are per batch. */
 model inventory_batches {
   id                 String                   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   organization_id    String                   @db.Uuid
