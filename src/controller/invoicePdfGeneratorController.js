@@ -1,10 +1,8 @@
-import { PrismaClient } from "@prisma/client";
+import prisma from "../prisma.js";
 import { billLineItemsOrderBy } from "../services/billInventoryService.js";
 import PDFDocument from "pdfkit";
 import fs from "fs";
 import path from "path";
-
-const prisma = new PrismaClient();
 
 // Resolve font path (adjust if your file structure differs)
 const fontPath = path.join(process.cwd(), "fonts", "NotoSans-Regular.ttf");

@@ -1,8 +1,6 @@
-import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcrypt";
+import prisma from "../prisma.js";
 import { tabFeatureConfig } from "./TabsAndFeatureStatic.js";
-
-const prisma = new PrismaClient();
 
 export const ensureSuperAdminExists = async () => {
   const existing = await prisma.super_admins.findFirst({

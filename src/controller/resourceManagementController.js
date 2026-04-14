@@ -5,6 +5,7 @@ import {
   updateResourceService,
 } from "../services/resourceManagementServices.js";
 import { response } from "express";
+import { normalizeOrgId } from "../util/orgId.js";
 
 export const createResourceController = async (req, res) => {
   try {
@@ -24,7 +25,13 @@ export const createResourceController = async (req, res) => {
 export const getResourcesController = async (req, res) => {
   try {
     const { orgId, status } = req.query;
-    const response = await getResources(orgId, status);
+    const { ok, orgId: orgUuid } = normalizeOrgId(orgId);
+    if (!ok) {
+      return res.status(400).json({
+        message: "Valid orgId (organization UUID) is required",
+      });
+    }
+    const response = await getResources(orgUuid, status);
     sendResponse(
       res,
       { message: "Getting Resources Successfully", response, status: 200 },

@@ -13,8 +13,8 @@ import {
   updateOrgDetailsService,
 } from "../services/userMgmtService.js";
 import { response } from "express";
-import { PrismaClient } from "@prisma/client";
-const prisma = new PrismaClient();
+import prisma from "../prisma.js";
+import { normalizeOrgId } from "../util/orgId.js";
 
 export const getUserDetails = async (req, res) => {
   try {
@@ -89,7 +89,13 @@ export const createRoleController = async (req, res) => {
 export const getRolesController = async (req, res) => {
   try {
     const { orgId } = req.query;
-    const response = await getRoleService(orgId);
+    const { ok, orgId: orgUuid } = normalizeOrgId(orgId);
+    if (!ok) {
+      return res.status(400).json({
+        message: "Valid orgId (organization UUID) is required",
+      });
+    }
+    const response = await getRoleService(orgUuid);
     sendResponse(
       res,
       { message: response.message, response, status: response.status },
@@ -241,8 +247,15 @@ export const getEmployeesController = async (req, res) => {
       sortOrder = "desc",
     } = req.query;
 
+    const { ok, orgId: orgUuid } = normalizeOrgId(orgId);
+    if (!ok) {
+      return res.status(400).json({
+        message: "Valid orgId (organization UUID) is required",
+      });
+    }
+
     const response = await getEmployeesService({
-      orgId,
+      orgId: orgUuid,
       page: parseInt(page, 10),
       limit: parseInt(limit, 10),
       search,
@@ -284,11 +297,18 @@ export const getDoctorController = async (req, res) => {
   try {
     const { orgId, page = 1, limit = 10, search } = req.query;
 
+    const { ok, orgId: orgUuid } = normalizeOrgId(orgId);
+    if (!ok) {
+      return res.status(400).json({
+        message: "Valid orgId (organization UUID) is required",
+      });
+    }
+
     const pageNum = Math.max(1, parseInt(page));
     const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
 
     const response = await getDoctorService({
-      orgId,
+      orgId: orgUuid,
       page: pageNum,
       limit: limitNum,
       search: search?.trim(),
