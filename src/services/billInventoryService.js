@@ -15,7 +15,7 @@ export function resolveBillLineKind(item) {
 
   if (hasService && hasInventory) {
     const err = new Error(
-      "Each line must set line_kind to SERVICE or INVENTORY when both service_id and inventory_item_id are present"
+      "Each line must set line_kind to SERVICE or INVENTORY when both service_id and inventory_item_id are present",
     );
     err.statusCode = 400;
     throw err;
@@ -46,7 +46,7 @@ export function mapLineItemToBillRow(billId, item, lineIndex) {
   if (kind === "SERVICE") {
     if (!item.service_id) {
       const err = new Error(
-        "service_id is required for service line items (line_kind SERVICE)"
+        "service_id is required for service line items (line_kind SERVICE)",
       );
       err.statusCode = 400;
       throw err;
@@ -54,7 +54,7 @@ export function mapLineItemToBillRow(billId, item, lineIndex) {
   } else {
     if (!item.inventory_item_id) {
       const err = new Error(
-        "inventory_item_id is required for inventory line items (line_kind INVENTORY)"
+        "inventory_item_id is required for inventory line items (line_kind INVENTORY)",
       );
       err.statusCode = 400;
       throw err;
@@ -126,7 +126,7 @@ export function mapLineItemToBillRow(billId, item, lineIndex) {
  */
 export async function deductInventoryForInvoiceBill(
   tx,
-  { organizationId, billId, invoiceNumber, billType, lineItemsInput }
+  { organizationId, billId, invoiceNumber, billType, lineItemsInput },
 ) {
   if (billType !== "INVOICE") {
     return;
@@ -138,7 +138,9 @@ export async function deductInventoryForInvoiceBill(
 
     const qty = Number(item.quantity);
     if (Number.isNaN(qty) || qty <= 0) {
-      const err = new Error("Each inventory line must have a positive quantity");
+      const err = new Error(
+        "Each inventory line must have a positive quantity",
+      );
       err.statusCode = 400;
       throw err;
     }
@@ -150,10 +152,13 @@ export async function deductInventoryForInvoiceBill(
         id: invId,
         organization_id: organizationId,
         is_valid: true,
+        inventory_type: "RETAIL",
       },
     });
     if (!inv) {
-      const err = new Error("Inventory item not found or not in this organization");
+      const err = new Error(
+        "Inventory item not found or not in this organization",
+      );
       err.statusCode = 404;
       throw err;
     }
@@ -184,7 +189,7 @@ export async function deductInventoryForInvoiceBill(
 
     if (!batchRow) {
       const err = new Error(
-        "Each inventory invoice line must specify inventory_batch_id (preferred) or a valid inventory_batch_number for that product"
+        "Each inventory invoice line must specify inventory_batch_id (preferred) or a valid inventory_batch_number for that product",
       );
       err.statusCode = 400;
       throw err;
@@ -193,7 +198,7 @@ export async function deductInventoryForInvoiceBill(
     const before = Number(batchRow.quantity_on_hand);
     if (before < qty) {
       const err = new Error(
-        `Insufficient stock in batch "${batchRow.batch_number}" for "${inv.name}". Available: ${before}, required: ${qty}`
+        `Insufficient stock in batch "${batchRow.batch_number}" for "${inv.name}". Available: ${before}, required: ${qty}`,
       );
       err.statusCode = 400;
       throw err;

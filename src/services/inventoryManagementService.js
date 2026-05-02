@@ -1,3 +1,4 @@
+import { inventory_type } from "@prisma/client";
 import Prisma from "../prisma.js";
 
 const decimal = (v) => {
@@ -29,6 +30,7 @@ export const createInventoryItem = async ({
   name,
   sku,
   description,
+  inventory_type,
   unit,
   initialQuantity,
   reorderLevel,
@@ -46,7 +48,7 @@ export const createInventoryItem = async ({
   const bn = batchNumber(batchNumberField);
   if (qty > 0 && bn === undefined) {
     const err = new Error(
-      "batchNumber is required when initialQuantity is greater than 0 (stock is tracked per batch)"
+      "batchNumber is required when initialQuantity is greater than 0 (stock is tracked per batch)",
     );
     err.statusCode = 400;
     throw err;
@@ -60,6 +62,7 @@ export const createInventoryItem = async ({
           organization_id: orgId,
           name: name.trim(),
           sku: sku?.trim() || null,
+          inventory_type,
           description: description?.trim() || null,
           unit: (unit || "unit").trim(),
           reorder_level: reorder,
@@ -199,7 +202,7 @@ export const addBatchStock = async ({
 
     if (existing) {
       const err = new Error(
-        "Batch already exists for this product — use adjustStock with inventoryBatchId to add quantity"
+        "Batch already exists for this product — use adjustStock with inventoryBatchId to add quantity",
       );
       err.statusCode = 409;
       throw err;
@@ -312,30 +315,34 @@ export const listInventoryItems = async ({
   page = 1,
   limit = 10,
   search = "",
+  billingData,
 }) => {
   const skip = (page - 1) * limit;
   const baseWhere = {
     organization_id: orgId,
     is_valid: true,
+    ...(billingData === "true"
+      ? { inventory_type: inventory_type.RETAIL }
+      : {}),
   };
 
   const whereCondition = search
     ? {
-      ...baseWhere,
-      OR: [
-        { name: { contains: search, mode: "insensitive" } },
-        { sku: { contains: search, mode: "insensitive" } },
-        { description: { contains: search, mode: "insensitive" } },
-        {
-          inventory_batches: {
-            some: {
-              is_valid: true,
-              batch_number: { contains: search, mode: "insensitive" },
+        ...baseWhere,
+        OR: [
+          { name: { contains: search, mode: "insensitive" } },
+          { sku: { contains: search, mode: "insensitive" } },
+          { description: { contains: search, mode: "insensitive" } },
+          {
+            inventory_batches: {
+              some: {
+                is_valid: true,
+                batch_number: { contains: search, mode: "insensitive" },
+              },
             },
           },
-        },
-      ],
-    }
+        ],
+      }
     : baseWhere;
 
   const [rows, totalCount] = await Promise.all([
@@ -423,8 +430,7 @@ export const updateInventoryItem = async ({
   if (description !== undefined) data.description = description?.trim() || null;
   if (unit != null) data.unit = unit.trim();
   if (reorderLevel !== undefined) {
-    data.reorder_level =
-      reorderLevel != null ? decimal(reorderLevel) : null;
+    data.reorder_level = reorderLevel != null ? decimal(reorderLevel) : null;
   }
 
   try {
@@ -435,7 +441,7 @@ export const updateInventoryItem = async ({
   } catch (e) {
     if (e.code === "P2002") {
       const err = new Error(
-        "An item with this SKU already exists for the organization"
+        "An item with this SKU already exists for the organization",
       );
       err.statusCode = 409;
       throw err;
@@ -480,7 +486,7 @@ export const applyStockChange = async ({
 }) => {
   if (!inventoryBatchId) {
     const err = new Error(
-      "inventoryBatchId is required — stock is tracked per batch"
+      "inventoryBatchId is required — stock is tracked per batch",
     );
     err.statusCode = 400;
     throw err;
@@ -526,7 +532,7 @@ export const applyStockChange = async ({
       const target = decimal(adjustmentToQuantity);
       if (target == null || target < 0) {
         const err = new Error(
-          "adjustmentToQuantity must be a non-negative number"
+          "adjustmentToQuantity must be a non-negative number",
         );
         err.statusCode = 400;
         throw err;
@@ -756,7 +762,7 @@ export const getInventoryItemFullDetails = async ({
   const bills = Array.from(billsById.values()).sort(
     (a, b) =>
       new Date(b.bill.created_at).getTime() -
-      new Date(a.bill.created_at).getTime()
+      new Date(a.bill.created_at).getTime(),
   );
 
   return {

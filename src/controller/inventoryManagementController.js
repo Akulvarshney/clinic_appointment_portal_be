@@ -21,6 +21,7 @@ export const createInventoryItemController = async (req, res) => {
       sku,
       description,
       unit,
+      inventory_type,
       initialQuantity,
       reorderLevel,
       batchNumber,
@@ -28,7 +29,9 @@ export const createInventoryItemController = async (req, res) => {
     } = req.body;
 
     if (!orgId) {
-      return res.status(400).json({ message: "Organization ID (orgId) is required" });
+      return res
+        .status(400)
+        .json({ message: "Organization ID (orgId) is required" });
     }
 
     const data = await createInventoryItem({
@@ -37,6 +40,7 @@ export const createInventoryItemController = async (req, res) => {
       sku,
       description,
       unit,
+      inventory_type,
       initialQuantity,
       reorderLevel,
       batchNumber,
@@ -50,7 +54,7 @@ export const createInventoryItemController = async (req, res) => {
         data,
         status: 200,
       },
-      200
+      200,
     );
   } catch (error) {
     console.error("createInventoryItemController:", error);
@@ -77,7 +81,7 @@ export const getBatchesForItemController = async (req, res) => {
         data,
         status: 200,
       },
-      200
+      200,
     );
   } catch (error) {
     console.error("getBatchesForItemController:", error);
@@ -124,7 +128,7 @@ export const addBatchStockController = async (req, res) => {
         data,
         status: 200,
       },
-      200
+      200,
     );
   } catch (error) {
     console.error("addBatchStockController:", error);
@@ -136,10 +140,12 @@ export const addBatchStockController = async (req, res) => {
 
 export const getInventoryItemsController = async (req, res) => {
   try {
-    const { orgId, page = 1, limit = 10, search = "" } = req.query;
+    const { orgId, page = 1, limit = 10, search = "", billingData } = req.query;
 
     if (!orgId) {
-      return res.status(400).json({ message: "Organization ID (orgId) is required" });
+      return res
+        .status(400)
+        .json({ message: "Organization ID (orgId) is required" });
     }
 
     const result = await listInventoryItems({
@@ -147,6 +153,7 @@ export const getInventoryItemsController = async (req, res) => {
       page: Number(page),
       limit: Number(limit),
       search,
+      billingData,
     });
 
     return sendResponse(
@@ -156,7 +163,7 @@ export const getInventoryItemsController = async (req, res) => {
         data: result,
         status: 200,
       },
-      200
+      200,
     );
   } catch (error) {
     console.error("getInventoryItemsController:", error);
@@ -171,9 +178,7 @@ export const getInventoryItemByIdController = async (req, res) => {
     const { orgId, itemId } = req.query;
 
     if (!orgId || !itemId) {
-      return res
-        .status(400)
-        .json({ message: "orgId and itemId are required" });
+      return res.status(400).json({ message: "orgId and itemId are required" });
     }
 
     const data = await getInventoryItemById({ orgId, itemId });
@@ -188,7 +193,7 @@ export const getInventoryItemByIdController = async (req, res) => {
         data,
         status: 200,
       },
-      200
+      200,
     );
   } catch (error) {
     console.error("getInventoryItemByIdController:", error);
@@ -200,14 +205,8 @@ export const getInventoryItemByIdController = async (req, res) => {
 
 export const updateInventoryBatchController = async (req, res) => {
   try {
-    const {
-      orgId,
-      batchId,
-      costPrice,
-      sellingPrice,
-      mrp,
-      expiryDate,
-    } = req.body;
+    const { orgId, batchId, costPrice, sellingPrice, mrp, expiryDate } =
+      req.body;
 
     if (!orgId || !batchId) {
       return res
@@ -231,7 +230,7 @@ export const updateInventoryBatchController = async (req, res) => {
         data,
         status: 200,
       },
-      200
+      200,
     );
   } catch (error) {
     console.error("updateInventoryBatchController:", error);
@@ -243,20 +242,11 @@ export const updateInventoryBatchController = async (req, res) => {
 
 export const updateInventoryItemController = async (req, res) => {
   try {
-    const {
-      orgId,
-      itemId,
-      name,
-      sku,
-      description,
-      unit,
-      reorderLevel,
-    } = req.body;
+    const { orgId, itemId, name, sku, description, unit, reorderLevel } =
+      req.body;
 
     if (!orgId || !itemId) {
-      return res
-        .status(400)
-        .json({ message: "orgId and itemId are required" });
+      return res.status(400).json({ message: "orgId and itemId are required" });
     }
 
     const data = await updateInventoryItem({
@@ -276,7 +266,7 @@ export const updateInventoryItemController = async (req, res) => {
         data,
         status: 200,
       },
-      200
+      200,
     );
   } catch (error) {
     console.error("updateInventoryItemController:", error);
@@ -291,9 +281,7 @@ export const deleteInventoryItemController = async (req, res) => {
     const { orgId, itemId } = req.body;
 
     if (!orgId || !itemId) {
-      return res
-        .status(400)
-        .json({ message: "orgId and itemId are required" });
+      return res.status(400).json({ message: "orgId and itemId are required" });
     }
 
     await softDeleteInventoryItem({ orgId, itemId });
@@ -304,7 +292,7 @@ export const deleteInventoryItemController = async (req, res) => {
         message: "Inventory item removed successfully",
         status: 200,
       },
-      200
+      200,
     );
   } catch (error) {
     console.error("deleteInventoryItemController:", error);
@@ -348,7 +336,7 @@ export const adjustStockController = async (req, res) => {
         data,
         status: 200,
       },
-      200
+      200,
     );
   } catch (error) {
     console.error("adjustStockController:", error);
@@ -363,7 +351,9 @@ export const getInventoryTransactionsController = async (req, res) => {
     const { orgId, itemId, batchId, page = 1, limit = 20 } = req.query;
 
     if (!orgId) {
-      return res.status(400).json({ message: "Organization ID (orgId) is required" });
+      return res
+        .status(400)
+        .json({ message: "Organization ID (orgId) is required" });
     }
 
     const result = await listInventoryTransactions({
@@ -381,7 +371,7 @@ export const getInventoryTransactionsController = async (req, res) => {
         data: result,
         status: 200,
       },
-      200
+      200,
     );
   } catch (error) {
     console.error("getInventoryTransactionsController:", error);
@@ -413,7 +403,8 @@ export const getInventoryItemFullDetailsController = async (req, res) => {
       itemId,
       transactionsPage: Number(transactionsPage),
       transactionsLimit: Number(transactionsLimit),
-      includeInactiveItem: includeInactiveItem === "true" || includeInactiveItem === "1",
+      includeInactiveItem:
+        includeInactiveItem === "true" || includeInactiveItem === "1",
     });
 
     return sendResponse(
@@ -423,7 +414,7 @@ export const getInventoryItemFullDetailsController = async (req, res) => {
         data,
         status: 200,
       },
-      200
+      200,
     );
   } catch (error) {
     console.error("getInventoryItemFullDetailsController:", error);

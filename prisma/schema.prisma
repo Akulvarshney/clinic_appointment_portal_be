@@ -640,6 +640,7 @@ model inventory_items {
   name               String                   @db.VarChar(255)
   sku                String?                  @db.VarChar(100)
   description        String?
+  inventory_type     inventory_type           @default(RETAIL)
   unit               String                   @default("unit") @db.VarChar(50)
   reorder_level      Decimal?                 @db.Decimal(14, 4)
   is_valid           Boolean                  @default(true)
@@ -707,4 +708,9 @@ enum inventory_transaction_type {
   STOCK_IN
   STOCK_OUT
   ADJUSTMENT
+}
+
+enum inventory_type {
+  RETAIL
+  CONSUMABLE
 }
