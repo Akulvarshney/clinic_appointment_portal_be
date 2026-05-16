@@ -138,7 +138,7 @@ export const generateInvoicePdf = async (req, res) => {
     const isIntraState =
       parseFloat(bill.total_cgst) > 0 || parseFloat(bill.total_sgst) > 0;
 
-    const baseCols = [
+    const serviceCols = [
       { label: "Service", width: 0.22, key: "service_name" },
       { label: "Qty", width: 0.05, key: "quantity", align: "right" },
       { label: "Rate", width: 0.08, key: "rate", align: "right" },
@@ -166,66 +166,88 @@ export const generateInvoicePdf = async (req, res) => {
       align: "right",
     };
 
-    const cols = [...baseCols, ...taxCols, totalCol];
-    const colWidths = cols.map((col) => col.width * usableWidth);
-    const rowHeight = 20;
+    const finalServiceCols = [...serviceCols, ...taxCols, totalCol];
+
+    const inventoryCols = [
+      { label: "Item", width: 0.35, key: "service_name" },
+      { label: "Batch No", width: 0.20, key: "inventory_batch_number" },
+      { label: "Qty", width: 0.10, key: "quantity", align: "right" },
+      { label: "Rate", width: 0.10, key: "rate", align: "right" },
+      { label: "Amount", width: 0.10, key: "amount", align: "right" },
+      { label: "Total", width: 0.15, key: "final_amount", align: "right" },
+    ];
+
+    const serviceItems = bill.bill_line_items.filter(item => !isInventoryBillLine(item));
+    const inventoryItems = bill.bill_line_items.filter(item => isInventoryBillLine(item));
+
     let y = doc.y;
 
-    // --- Header Row ---
-    doc.fontSize(9).font(baseFont);
-    let x = leftMargin;
-    cols.forEach((col, i) => {
-      doc.text(col.label, x, y, {
-        width: colWidths[i],
-        align: col.align || "left",
-      });
-      x += colWidths[i];
-    });
-    y += rowHeight + 4;
+    const renderTable = (items, cols, title) => {
+      if (items.length === 0) return y;
 
-    // --- Data Rows ---
-    bill.bill_line_items.forEach((item) => {
-      x = leftMargin;
-      const invLine = isInventoryBillLine(item);
+      if (title) {
+        doc.fontSize(11).font(baseFont + "-Bold").text(title, leftMargin, y);
+        y += 20;
+      }
+
+      const colWidths = cols.map((col) => col.width * usableWidth);
+      const rowHeight = 20;
+
+      // --- Header Row ---
+      doc.fontSize(9).font(baseFont + "-Bold");
+      let x = leftMargin;
       cols.forEach((col, i) => {
-        let value = "N/A";
-        if (col.key === "service_name") {
-          value = item.service_name || item.description || "N/A";
-        } else if (
-          invLine &&
-          [
-            "gst_percentage",
-            "cgst_amount",
-            "sgst_amount",
-            "igst_amount",
-          ].includes(col.key)
-        ) {
-          value = "—";
-        } else if (col.key === "gst_percentage") {
-          const pct = item.gst_percentage;
-          value = pct != null ? `${pct}%` : "N/A";
-        } else {
-          const isMonetary = [
-            "rate",
-            "taxable_amount",
-            "cgst_amount",
-            "sgst_amount",
-            "igst_amount",
-            "final_amount",
-            "line_discount_share",
-          ].includes(col.key);
-          value = isMonetary
-            ? withRupee(item[col.key])
-            : String(item[col.key] ?? "N/A");
-        }
-        doc.fontSize(9).text(value, x, y, {
+        doc.text(col.label, x, y, {
           width: colWidths[i],
           align: col.align || "left",
         });
         x += colWidths[i];
       });
-      y += rowHeight;
-    });
+      y += rowHeight + 4;
+
+      // --- Data Rows ---
+      doc.font(baseFont);
+      items.forEach((item) => {
+        x = leftMargin;
+        cols.forEach((col, i) => {
+          let value = "N/A";
+          if (col.key === "service_name") {
+            value = item.service_name || item.description || "N/A";
+          } else if (col.key === "inventory_batch_number") {
+            value = item.inventory_batch_number || "N/A";
+          } else if (col.key === "gst_percentage") {
+            const pct = item.gst_percentage;
+            value = pct != null ? `${pct}%` : "N/A";
+          } else {
+            const isMonetary = [
+              "rate",
+              "amount",
+              "taxable_amount",
+              "cgst_amount",
+              "sgst_amount",
+              "igst_amount",
+              "final_amount",
+              "line_discount_share",
+            ].includes(col.key);
+            value = isMonetary
+              ? withRupee(item[col.key])
+              : String(item[col.key] ?? "N/A");
+          }
+          doc.fontSize(9).text(value, x, y, {
+            width: colWidths[i],
+            align: col.align || "left",
+          });
+          x += colWidths[i];
+        });
+        y += rowHeight;
+      });
+
+      y += 15;
+      return y;
+    };
+
+    y = renderTable(serviceItems, finalServiceCols, "Services");
+    y = renderTable(inventoryItems, inventoryCols, "Retail");
 
     doc.y = y + 10;
 
@@ -485,85 +507,114 @@ export const generateThermalInvoicePdf = async (req, res) => {
       (bill.total_cgst && parseFloat(bill.total_cgst) > 0) ||
       (bill.total_sgst && parseFloat(bill.total_sgst) > 0);
 
-    bill.bill_line_items.forEach((item, index) => {
-      const desc = item.service_name || item.description || "Item";
-      doc
-        .font(`${baseFont}-Bold`)
-        .fontSize(8)
-        .text(`${index + 1}) ${desc}`, 8, doc.y, {
-          width: 210,
-          lineBreak: true,
-        });
+    const renderThermalItems = (items, title) => {
+      if (items.length === 0) return;
 
-      doc.font(baseFont).fontSize(7);
-
-      const printDetail = (label, value) => {
-        if (
-          value != null &&
-          value !== "" &&
-          value !== "0" &&
-          value !== "0.00"
-        ) {
-          doc.text(`${label}: ${value}`, 20, doc.y, { width: 200 });
-        }
-      };
-
-      printDetail("Qty", item.quantity || "1");
-      printDetail("Rate", withRupee(item.rate));
-
-      if (
-        !isInventoryBillLine(item) &&
-        item.gst_percentage != null &&
-        item.gst_percentage !== "" &&
-        parseFloat(item.gst_percentage) > 0
-      ) {
-        printDetail("GST", `${item.gst_percentage}%`);
+      if (title) {
+        doc.font(`${baseFont}-Bold`).fontSize(9).text(title, 8, doc.y, { width: 210, underline: true });
+        doc.moveDown(0.3);
       }
 
-      if (
-        item.line_discount_share &&
-        parseFloat(item.line_discount_share) > 0
-      ) {
-        // const discPerc = item.discount_percentage
-        //   ? ` (${item.discount_percentage}%)`
-        //   : "";
-        printDetail(`Disc`, withRupee(item.line_discount_share));
-      }
+      items.forEach((item, index) => {
+        const desc = item.service_name || item.description || "Item";
+        doc
+          .font(`${baseFont}-Bold`)
+          .fontSize(8)
+          .text(`${index + 1}) ${desc}`, 8, doc.y, {
+            width: 210,
+            lineBreak: true,
+          });
 
-      if (item.taxable_amount) {
-        printDetail("Taxable", withRupee(item.taxable_amount));
-      }
+        doc.font(baseFont).fontSize(7);
 
-      if (isIntraState) {
-        if (item.cgst_amount && parseFloat(item.cgst_amount) > 0) {
-          const cgstPerc = item.gst_percentage
-            ? ` (${parseFloat(item.gst_percentage) / 2}%)`
-            : "";
-          printDetail(`CGST${cgstPerc}`, withRupee(item.cgst_amount));
+        const printDetail = (label, value) => {
+          if (
+            value != null &&
+            value !== "" &&
+            value !== "0" &&
+            value !== "0.00"
+          ) {
+            doc.text(`${label}: ${value}`, 20, doc.y, { width: 200 });
+          }
+        };
+
+        if (isInventoryBillLine(item)) {
+          printDetail("Batch", item.inventory_batch_number || "N/A");
+          printDetail("Qty", item.quantity || "1");
+          printDetail("Rate", withRupee(item.rate));
+          printDetail("Amount", withRupee(item.amount));
+          printDetail("Total", withRupee(item.final_amount));
+        } else {
+          printDetail("Qty", item.quantity || "1");
+          printDetail("Rate", withRupee(item.rate));
+
+          if (
+            item.gst_percentage != null &&
+            item.gst_percentage !== "" &&
+            parseFloat(item.gst_percentage) > 0
+          ) {
+            printDetail("GST", `${item.gst_percentage}%`);
+          }
+
+          if (
+            item.line_discount_share &&
+            parseFloat(item.line_discount_share) > 0
+          ) {
+            printDetail(`Disc`, withRupee(item.line_discount_share));
+          }
+
+          if (item.taxable_amount) {
+            printDetail("Taxable", withRupee(item.taxable_amount));
+          }
+
+          if (isIntraState) {
+            if (item.cgst_amount && parseFloat(item.cgst_amount) > 0) {
+              const cgstPerc = item.gst_percentage
+                ? ` (${parseFloat(item.gst_percentage) / 2}%)`
+                : "";
+              printDetail(`CGST${cgstPerc}`, withRupee(item.cgst_amount));
+            }
+            if (item.sgst_amount && parseFloat(item.sgst_amount) > 0) {
+              const sgstPerc = item.gst_percentage
+                ? ` (${parseFloat(item.gst_percentage) / 2}%)`
+                : "";
+              printDetail(`SGST${sgstPerc}`, withRupee(item.sgst_amount));
+            }
+          } else {
+            if (item.igst_amount && parseFloat(item.igst_amount) > 0) {
+              const igstPerc = item.gst_percentage
+                ? ` (${item.gst_percentage}%)`
+                : "";
+              printDetail(`IGST${igstPerc}`, withRupee(item.igst_amount));
+            }
+          }
+
+          printDetail("Total", withRupee(item.final_amount));
         }
-        if (item.sgst_amount && parseFloat(item.sgst_amount) > 0) {
-          const sgstPerc = item.gst_percentage
-            ? ` (${parseFloat(item.gst_percentage) / 2}%)`
-            : "";
-          printDetail(`SGST${sgstPerc}`, withRupee(item.sgst_amount));
-        }
-      } else {
-        if (item.igst_amount && parseFloat(item.igst_amount) > 0) {
-          const igstPerc = item.gst_percentage
-            ? ` (${item.gst_percentage}%)`
-            : "";
-          printDetail(`IGST${igstPerc}`, withRupee(item.igst_amount));
-        }
-      }
 
-      printDetail("Total", withRupee(item.final_amount));
-      doc.moveDown(0.3);
+        doc.moveDown(0.3);
 
-      if (index < bill.bill_line_items.length - 1) {
+        if (index < items.length - 1) {
+          drawDashedLine();
+          doc.moveDown(0.2);
+        }
+      });
+    };
+
+    const serviceItems = bill.bill_line_items.filter(item => !isInventoryBillLine(item));
+    const inventoryItems = bill.bill_line_items.filter(item => isInventoryBillLine(item));
+
+    if (serviceItems.length > 0) {
+      renderThermalItems(serviceItems, "Services");
+    }
+
+    if (inventoryItems.length > 0) {
+      if (serviceItems.length > 0) {
         drawDashedLine();
         doc.moveDown(0.2);
       }
-    });
+      renderThermalItems(inventoryItems, "Retail");
+    }
 
     drawLine();
     doc.moveDown(0.2);
