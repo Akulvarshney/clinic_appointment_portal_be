@@ -35,7 +35,10 @@ export const generateInvoicePdf = async (req, res) => {
     const bill = await prisma.bills.findUnique({
       where: { id: billId },
       include: {
-        bill_line_items: { orderBy: billLineItemsOrderBy },
+        bill_line_items: {
+          orderBy: billLineItemsOrderBy,
+          include: { inventory_batches: true },
+        },
         organizations: true,
         clients: true,
       },
@@ -169,16 +172,17 @@ export const generateInvoicePdf = async (req, res) => {
     const finalServiceCols = [...serviceCols, ...taxCols, totalCol];
 
     const inventoryCols = [
-      { label: "Item", width: 0.35, key: "service_name" },
-      { label: "Batch No", width: 0.20, key: "inventory_batch_number" },
+      { label: "Item", width: 0.40, key: "service_name" },
       { label: "Qty", width: 0.10, key: "quantity", align: "right" },
-      { label: "Rate", width: 0.10, key: "rate", align: "right" },
-      { label: "Amount", width: 0.10, key: "amount", align: "right" },
-      { label: "Total", width: 0.15, key: "final_amount", align: "right" },
+      { label: "MRP", width: 0.15, key: "mrp", align: "right" },
+      { label: "Rate", width: 0.15, key: "rate", align: "right" },
+      { label: "Total", width: 0.20, key: "final_amount", align: "right" },
     ];
-
+    console.log("bill.bill_line_items siddhant ", bill.bill_line_items);
     const serviceItems = bill.bill_line_items.filter(item => !isInventoryBillLine(item));
     const inventoryItems = bill.bill_line_items.filter(item => isInventoryBillLine(item));
+   // console.log("serviceItems siddhant ", serviceItems);
+    console.log("inventoryItems siddhant ", inventoryItems);
 
     let y = doc.y;
 
@@ -213,13 +217,21 @@ export const generateInvoicePdf = async (req, res) => {
           let value = "N/A";
           if (col.key === "service_name") {
             value = item.service_name || item.description || "N/A";
-          } else if (col.key === "inventory_batch_number") {
-            value = item.inventory_batch_number || "N/A";
+          } else if (col.key === "quantity") {
+            const qty = parseFloat(item.quantity);
+            value = Number.isFinite(qty)
+              ? qty % 1 === 0
+                ? String(qty)
+                : qty.toFixed(3).replace(/\.?0+$/, "")
+              : "N/A";
+          } else if (col.key === "mrp") {
+            value = withRupee(item.inventory_batches?.mrp);
           } else if (col.key === "gst_percentage") {
             const pct = item.gst_percentage;
             value = pct != null ? `${pct}%` : "N/A";
           } else {
             const isMonetary = [
+              "mrp",
               "rate",
               "amount",
               "taxable_amount",
