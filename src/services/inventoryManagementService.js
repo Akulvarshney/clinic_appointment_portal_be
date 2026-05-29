@@ -25,6 +25,116 @@ function sumBatchQty(batches) {
   return batches.reduce((s, b) => s + Number(b.quantity_on_hand), 0);
 }
 
+function normalizeInventoryType(value) {
+  if (value === undefined || value === null || value === "") return undefined;
+
+  const normalized = String(value).trim().toUpperCase();
+  if (!normalized) return undefined;
+
+  if (normalized === inventory_type.RETAIL) return inventory_type.RETAIL;
+  if (normalized === inventory_type.CONSUMABLE) return inventory_type.CONSUMABLE;
+
+  //const err = new Error("inventory_type must be RETAIL or CONSUMABLE");
+  //err.statusCode = 400;
+  //throw err;
+  return undefined;
+}
+
+function buildInventoryItemsWhere({
+  orgId,
+  search = "",
+  billingData,
+  inventoryType,
+}) {
+  const resolvedInventoryType =
+    billingData !== undefined
+      ? inventory_type.RETAIL
+      : normalizeInventoryType(inventoryType);
+  const baseWhere = {
+    organization_id: orgId,
+    is_valid: true,
+    ...(resolvedInventoryType
+      ? { inventory_type: resolvedInventoryType }
+      : {}),
+  };
+
+  if (!search) return baseWhere;
+
+  return {
+    ...baseWhere,
+    OR: [
+      { name: { contains: search, mode: "insensitive" } },
+      { sku: { contains: search, mode: "insensitive" } },
+      { description: { contains: search, mode: "insensitive" } },
+      {
+        inventory_batches: {
+          some: {
+            is_valid: true,
+            batch_number: { contains: search, mode: "insensitive" },
+          },
+        },
+      },
+    ],
+  };
+}
+
+function buildInventoryItemListPayload(row) {
+  return {
+    ...row,
+    total_quantity_on_hand: sumBatchQty(row.inventory_batches),
+  };
+}
+
+async function fetchInventoryItemsPage({
+  orgId,
+  page = 1,
+  limit = 10,
+  search = "",
+  billingData,
+  inventoryType,
+}) {
+  const currentPage = Number.isFinite(page) && page > 0 ? page : 1;
+  const take = Number.isFinite(limit) && limit > 0 ? limit : 10;
+  const skip = (currentPage - 1) * take;
+  const whereCondition = buildInventoryItemsWhere({
+    orgId,
+    search,
+    billingData,
+    inventoryType,
+  });
+
+  const [rows, totalCount] = await Promise.all([
+    Prisma.inventory_items.findMany({
+      where: whereCondition,
+      skip,
+      take,
+      orderBy: { created_at: "desc" },
+      include: {
+        inventory_batches: {
+          where: { is_valid: true },
+          select: {
+            id: true,
+            batch_number: true,
+            expiry_date: true,
+            quantity_on_hand: true,
+            cost_price: true,
+            selling_price: true,
+            mrp: true,
+          },
+        },
+      },
+    }),
+    Prisma.inventory_items.count({ where: whereCondition }),
+  ]);
+
+  return {
+    items: rows.map(buildInventoryItemListPayload),
+    totalRecords: totalCount,
+    currentPage,
+    totalPages: Math.ceil(totalCount / take) || 1,
+  };
+}
+
 export const createInventoryItem = async ({
   orgId,
   name,
@@ -316,69 +426,72 @@ export const listInventoryItems = async ({
   limit = 10,
   search = "",
   billingData,
+  inventoryType,
 }) => {
-  const skip = (page - 1) * limit;
-  const baseWhere = {
-    organization_id: orgId,
-    is_valid: true,
-    ...(billingData === "true"
-      ? { inventory_type: inventory_type.RETAIL }
-      : {}),
-  };
+  return fetchInventoryItemsPage({
+    orgId,
+    page,
+    limit,
+    search,
+    billingData,
+    inventoryType,
+  });
+};
 
-  const whereCondition = search
-    ? {
-        ...baseWhere,
-        OR: [
-          { name: { contains: search, mode: "insensitive" } },
-          { sku: { contains: search, mode: "insensitive" } },
-          { description: { contains: search, mode: "insensitive" } },
-          {
-            inventory_batches: {
-              some: {
-                is_valid: true,
-                batch_number: { contains: search, mode: "insensitive" },
-              },
-            },
-          },
-        ],
-      }
-    : baseWhere;
+export const getInventoryItemsDownloadData = async ({
+  orgId,
+  search = "",
+  billingData,
+  inventoryType,
+}) => {
+  const whereCondition = buildInventoryItemsWhere({
+    orgId,
+    search,
+    billingData,
+    inventoryType,
+  });
 
-  const [rows, totalCount] = await Promise.all([
-    Prisma.inventory_items.findMany({
-      where: whereCondition,
-      skip,
-      take: limit,
-      orderBy: { created_at: "desc" },
-      include: {
-        inventory_batches: {
-          where: { is_valid: true },
-          select: {
-            id: true,
-            batch_number: true,
-            expiry_date: true,
-            quantity_on_hand: true,
-            cost_price: true,
-            selling_price: true,
-            mrp: true,
-          },
+  const rows = await Prisma.inventory_items.findMany({
+    where: whereCondition,
+    orderBy: { created_at: "desc" },
+    include: {
+      inventory_batches: {
+        where: { is_valid: true },
+        select: {
+          id: true,
+          batch_number: true,
+          expiry_date: true,
+          quantity_on_hand: true,
+          cost_price: true,
+          selling_price: true,
+          mrp: true,
         },
       },
-    }),
-    Prisma.inventory_items.count({ where: whereCondition }),
-  ]);
+    },
+  });
 
-  const items = rows.map((row) => ({
-    ...row,
-    total_quantity_on_hand: sumBatchQty(row.inventory_batches),
-  }));
+  const items = rows.map(buildInventoryItemListPayload);
+
+  const downloadRows = items.map((item, index) => {
+    const mrps = item.inventory_batches.map((batch) =>
+      batch.mrp == null ? "" : Number(batch.mrp),
+    );
+
+    return {
+      serial_number: index + 1,
+      name: item.name,
+      sku: item.sku || "",
+      item_type: item.inventory_type,
+      total_quantity_on_hand: Number(item.total_quantity_on_hand),
+      batch_count: item.inventory_batches.length,
+      mrp: mrps.filter((value) => value !== "").join(", "),
+    };
+  });
 
   return {
     items,
-    totalRecords: totalCount,
-    currentPage: page,
-    totalPages: Math.ceil(totalCount / limit) || 1,
+    totalRecords: items.length,
+    rows: downloadRows,
   };
 };
 

@@ -1,10 +1,12 @@
 import { sendResponse } from "../util/response.js";
+import { sendExcelDownload } from "../util/excelExport.js";
 import {
   addBatchStock,
   applyStockChange,
   createInventoryItem,
   getInventoryItemById,
   listBatchesForItem,
+  getInventoryItemsDownloadData,
   listInventoryItems,
   listInventoryTransactions,
   getInventoryItemFullDetails,
@@ -12,6 +14,31 @@ import {
   updateInventoryBatch,
   updateInventoryItem,
 } from "../services/inventoryManagementService.js";
+
+function getInventoryDownloadTimestamp(date = new Date()) {
+  const months = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
+
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = months[date.getMonth()];
+  const year = String(date.getFullYear()).slice(-2);
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+
+  return `${day}-${month}-${year}_${hours}:${minutes}`;
+}
 
 export const createInventoryItemController = async (req, res) => {
   try {
@@ -140,20 +167,30 @@ export const addBatchStockController = async (req, res) => {
 
 export const getInventoryItemsController = async (req, res) => {
   try {
-    const { orgId, page = 1, limit = 10, search = "", billingData } = req.query;
+    const {
+      orgId,
+      page = 1,
+      limit = 10,
+      search = "",
+      billingData,
+      billing,
+      inventory_type,
+    } = req.query;
 
     if (!orgId) {
       return res
         .status(400)
         .json({ message: "Organization ID (orgId) is required" });
     }
-
+    console.log("billingData", billingData);
+    console.log("billing", billing);
     const result = await listInventoryItems({
       orgId,
       page: Number(page),
       limit: Number(limit),
       search,
-      billingData,
+      billingData: billingData ,
+      inventoryType: inventory_type,
     });
 
     return sendResponse(
@@ -167,6 +204,50 @@ export const getInventoryItemsController = async (req, res) => {
     );
   } catch (error) {
     console.error("getInventoryItemsController:", error);
+    return res.status(error.statusCode || 500).json({
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
+
+export const downloadInventoryItemsController = async (req, res) => {
+  try {
+    const {
+      orgId,
+      search = "",
+      billingData,
+      inventory_type,
+    } = req.query;
+
+    if (!orgId) {
+      return res
+        .status(400)
+        .json({ message: "Organization ID (orgId) is required" });
+    }
+
+    const result = await getInventoryItemsDownloadData({
+      orgId,
+      search,
+      billingData,
+      inventoryType: inventory_type,
+    });
+
+    sendExcelDownload(res, {
+      filename: `inventory_${getInventoryDownloadTimestamp()}`,
+      sheetName: "Inventory",
+      columns: [
+        { header: "S.No", key: "serial_number", width: 10 },
+        { header: "Name", key: "name", width: 26 },
+        { header: "SKU", key: "sku", width: 18 },
+        { header: "Item Type", key: "item_type", width: 18 },
+        { header: "Total Quantity on Hand", key: "total_quantity_on_hand", width: 16 },
+        { header: "Batch Count", key: "batch_count", width: 12 },
+        { header: "MRP", key: "mrp", width: 18 },
+      ],
+      rows: result.rows,
+    });
+  } catch (error) {
+    console.error("downloadInventoryItemsController:", error);
     return res.status(error.statusCode || 500).json({
       message: error.message || "Internal Server Error",
     });
