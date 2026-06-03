@@ -38,6 +38,10 @@ export const tabFeatureConfig = [
         feature_unique_name: "ADD_PAST_APPOINTMENT",
         feature_name: "Add Past Appointment",
       },
+      {
+        feature_unique_name: "ADD_CLINICAL_NOTES",
+        feature_name: "Add Clinical Notes",
+      },
 
     ],
   },

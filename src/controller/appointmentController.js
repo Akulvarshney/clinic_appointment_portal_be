@@ -8,6 +8,7 @@ import { sendResponse, sendErrorResponse } from "../util/response.js";
 //   checkShortNameService,
 // } from "../services/newApplicationService.js";
 import {
+  addClinicalRemarksService,
   bookAppointmentService,
   getActiveAppointmentService,
   cancelAppointmentsService,
@@ -17,6 +18,7 @@ import {
 } from "../services/appointmentService.js";
 
 export const bookAppointmentController = async (req, res) => {
+  const createdByUserId = req.userId;
   const {
     title,
     clientId,
@@ -43,7 +45,8 @@ export const bookAppointmentController = async (req, res) => {
       remarks,
       doctorId,
       serviceId,
-      employeeId
+      employeeId,
+      createdByUserId
     );
     res.json(response);
   } catch (error) {
@@ -141,5 +144,31 @@ export const updateAppointmentController = async (req, res) => {
   } catch (error) {
     console.log("Error here.   ", error.message);
     res.status(500).json({ message: "Error: while updating Appointment" });
+  }
+};
+
+export const addClinicalRemarksController = async (req, res) => {
+  const { id } = req.query;
+  const { clinicalRemarks } = req.body;
+  const clinicalNotesAddedBy = req.userId;
+
+  try {
+    const response = await addClinicalRemarksService(
+      id,
+      clinicalRemarks,
+      clinicalNotesAddedBy
+    );
+    sendResponse(
+      res,
+      {
+        message: "Clinical remarks saved successfully",
+        response,
+        status: 200,
+      },
+      200
+    );
+  } catch (error) {
+    console.log("Error here.   ", error.message);
+    res.status(500).json({ message: "Error: while saving clinical remarks" });
   }
 };

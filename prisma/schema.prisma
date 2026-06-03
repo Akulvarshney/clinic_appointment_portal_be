@@ -266,6 +266,7 @@ model services {
   id                      String                    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   name                    String                    @db.VarChar(255)
   description             String?
+  session_interval        String?                   @db.VarChar(50)
   price                   Decimal                   @db.Decimal(10, 2)
   is_valid                Boolean?                  @default(true)
   created_at              DateTime?                 @default(now()) @db.Timestamp(6)
@@ -285,6 +286,7 @@ model appointments {
   portal_id        String             @unique @db.VarChar(25)
   organization_id  String             @db.Uuid
   client_id        String?            @db.Uuid
+  created_by_user_id String?          @db.Uuid
   service_id       String?            @db.Uuid
   resource_id      String             @db.Uuid
   doctor_id        String?            @db.Uuid
@@ -299,6 +301,8 @@ model appointments {
   cancel_date_time DateTime?          @db.Timestamp(6)
   created_at       DateTime?          @default(now()) @db.Timestamp(6)
   employee_id      String?            @db.Uuid
+  clinical_notes   String?
+  clinical_notes_added_by String?     @db.Uuid
   clients          clients?           @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   doctors          doctors?           @relation(fields: [doctor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   organizations    organizations      @relation(fields: [organization_id], references: [id], onDelete: NoAction, onUpdate: NoAction)

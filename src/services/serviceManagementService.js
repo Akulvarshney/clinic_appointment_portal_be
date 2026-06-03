@@ -1,5 +1,11 @@
 import Prisma from "../prisma.js";
 
+function normalizeSessionInterval(value) {
+  if (value === undefined) return undefined;
+  if (value === null || value === "") return null;
+  return String(value);
+}
+
 async function generateServicePortalId() {
   return await Prisma.$transaction(async (tx) => {
     const latest = await tx.services.findFirst({
@@ -35,8 +41,10 @@ export const createServiceInfo = async (
   desc,
   price,
   orgId,
-  tax_percentage
+  tax_percentage,
+  sessionInterval
 ) => {
+  const normalizedSessionInterval = normalizeSessionInterval(sessionInterval);
   return await Prisma.$transaction(async (tx) => {
     const portal = await generateServicePortalId();
     console.log("portal_id >>> ", portal);
@@ -48,6 +56,7 @@ export const createServiceInfo = async (
         organization_id: orgId,
         portal_id: portal,
         tax_percentage: tax_percentage,
+        session_interval: normalizedSessionInterval,
       },
     });
     if (service)
@@ -131,8 +140,10 @@ export const updateServices = async ({
   orgId,
   status,
   tax_percentage,
+  sessionInterval,
 }) => {
   console.log("tax_percentage ", tax_percentage);
+  const normalizedSessionInterval = normalizeSessionInterval(sessionInterval);
   const updatedService = await Prisma.services.update({
     where: { id },
     data: {
@@ -142,6 +153,9 @@ export const updateServices = async ({
       ...(orgId !== undefined && { organization_id: orgId }),
       ...(status !== undefined && { status }),
       ...(tax_percentage !== undefined && { tax_percentage }),
+      ...(sessionInterval !== undefined && {
+        session_interval: normalizedSessionInterval,
+      }),
     },
   });
   

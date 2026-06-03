@@ -1,4 +1,16 @@
 import Prisma from "../prisma.js";
+
+function addDays(date, days) {
+  const base = new Date(date);
+  const year = base.getFullYear();
+  const month = base.getMonth();
+  const day = base.getDate();
+
+  // Use UTC noon for DATE columns so timezone conversion does not shift
+  // the stored calendar date back by one day.
+  return new Date(Date.UTC(year, month, day + days, 12, 0, 0));
+}
+
 async function generateAppointmentPortal_id() {
   return await Prisma.$transaction(async (tx) => {
     const latest = await tx.appointments.findFirst({
@@ -39,7 +51,8 @@ export const bookAppointmentService = async (
   remarks,
   doctorId,
   serviceId,
-  employeeId
+  employeeId,
+  createdByUserId
 ) => {
   const portal_id = await generateAppointmentPortal_id();
   console.log("portal_id>> ", portal_id);
@@ -49,6 +62,7 @@ export const bookAppointmentService = async (
       portal_id,
       organization_id: orgId,
       client_id: clientId,
+      created_by_user_id: createdByUserId || null,
       resource_id: resourceId,
       date_time: date,
       start_time: start,
@@ -133,7 +147,24 @@ export const cancelAppointmentsService = async (id, cancelRemarks) => {
 };
 
 export const changeAppointmentStatusService = async (id, status) => {
-  await Prisma.appointments.update({
+  const appointment = await Prisma.appointments.findFirst({
+    where: { id },
+    include: {
+      services: {
+        select: {
+          id: true,
+          name: true,
+          session_interval: true,
+        },
+      },
+    },
+  });
+
+  if (!appointment) {
+    throw new Error("Appointment not found this ID");
+  }
+
+  const updatedAppointment = await Prisma.appointments.update({
     data: {
       status,
     },
@@ -141,6 +172,40 @@ export const changeAppointmentStatusService = async (id, status) => {
       id,
     },
   });
+
+  const shouldCreateReminder =
+    status === "VISITED" && appointment.status !== "VISITED";
+
+  if (!shouldCreateReminder) {
+    return updatedAppointment;
+  }
+
+  const intervalDays = parseInt(appointment.services?.session_interval, 10);
+  if (
+    !appointment.client_id ||
+    !appointment.organization_id ||
+    !Number.isFinite(intervalDays) ||
+    intervalDays < 0
+  ) {
+    return updatedAppointment;
+  }
+
+  await Prisma.reminder.create({
+    data: {
+      organization_id: appointment.organization_id,
+      client_id: appointment.client_id,
+      reminderdate: addDays(new Date(), intervalDays),
+      remindercomments: appointment.services?.name
+        ? `Follow-up for ${appointment.services.name} for Appt ID ${appointment.portal_id} on Appt Date ${new Date(
+            appointment.date_time
+          ).toLocaleDateString("en-GB")}`
+        : `Follow-up with Appt ID ${appointment.portal_id} on Appt Date ${new Date(appointment.date_time).toLocaleDateString(
+            "en-GB"
+          )}`,
+    },
+  });
+
+  return updatedAppointment;
 };
 
 export const reScheduleAppointmentService = async (
@@ -194,6 +259,31 @@ export const updateAppointmentService = async (
       employee_id: employeeId,
       doctor_id: doctorId,
       remarks: notes,
+    },
+  });
+};
+
+export const addClinicalRemarksService = async (
+  id,
+  clinicalRemarks,
+  clinicalNotesAddedBy
+) => {
+  const appt = await Prisma.appointments.findFirst({
+    where: {
+      id,
+    },
+  });
+  if (!appt) {
+    throw new Error("Appointment not found this ID");
+  }
+
+  return await Prisma.appointments.update({
+    where: {
+      id,
+    },
+    data: {
+      clinical_notes: clinicalRemarks,
+      clinical_notes_added_by: clinicalNotesAddedBy || null,
     },
   });
 };

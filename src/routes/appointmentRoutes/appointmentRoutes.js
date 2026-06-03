@@ -1,6 +1,7 @@
 import { Router } from "express";
 
 import {
+  addClinicalRemarksController,
   bookAppointmentController,
   getActiveAppointmentsController,
   cancelAppointmentController,
@@ -18,5 +19,6 @@ router.post("/cancelAppointment", cancelAppointmentController);
 router.post("/rescheduleAppointments", reScheduleAppointmentController);
 
 router.patch("/updateAppointmentDetails", updateAppointmentController);
+router.post("/addClinicalRemarks", addClinicalRemarksController);
 
 export default router;
