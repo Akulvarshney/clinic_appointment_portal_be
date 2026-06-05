@@ -185,7 +185,7 @@ export const changeAppointmentStatusService = async (id, status) => {
     !appointment.client_id ||
     !appointment.organization_id ||
     !Number.isFinite(intervalDays) ||
-    intervalDays < 0
+    intervalDays <= 0
   ) {
     return updatedAppointment;
   }
