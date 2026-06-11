@@ -1,4 +1,7 @@
 import app from "./app.js";
+import { createServer } from "http";
+import { Server } from "socket.io";
+import { initSocket } from "./src/services/socketService.js";
 import dotenv from "dotenv";
 import pkg from "pg";
 import {
@@ -41,8 +44,17 @@ pool.on("error", (err) => {
     // await ensureSuperAdminExists();
     //await syncTabsAndFeatures();
 
-    app.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
+    const httpServer = createServer(app);
+    const io = new Server(httpServer, {
+      cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+      }
+    });
+    initSocket(io);
+
+    httpServer.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT} with Socket.IO`);
     });
   } catch (err) {
     console.error("❌ Startup failed:", err);

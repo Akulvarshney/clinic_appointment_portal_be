@@ -4,6 +4,9 @@ import noauthRoutes from "./noAuthRoutes/index.js";
 import clientadmin from "./clientAdminRoutes/index.js";
 import patientRoutes from "./patientRoutes/index.js";
 import appointmentRoutes from "./appointmentRoutes/index.js";
+import facebookAuthRoutes from "./facebookAuth.js";
+import webhookRoutes from "./webhooks.js";
+import leadsRoutes from "./leads.js";
 import { loginMiddleware } from "../middleware/authMiddleware.js";
 import {
   generateInvoicePdf,
@@ -24,5 +27,9 @@ router.use("/clientadmin", loginMiddleware, clientadmin);
 router.use("/patient", loginMiddleware, patientRoutes);
 router.use("/admin", adminRoutes);
 router.use("/appointments", loginMiddleware, appointmentRoutes);
+
+router.use("/facebook-auth", facebookAuthRoutes);
+router.use("/facebook", webhookRoutes);
+router.use("/leads", leadsRoutes);
 
 export default router;
