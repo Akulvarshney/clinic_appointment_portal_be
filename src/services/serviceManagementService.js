@@ -6,6 +6,16 @@ function normalizeSessionInterval(value) {
   return String(value);
 }
 
+function normalizeTaxPercentageForCreate(value) {
+  if (value === undefined || value === null || value === "") return 0;
+  return Number(value);
+}
+
+function normalizeTaxPercentageForUpdate(value) {
+  if (value === undefined || value === null || value === "") return undefined;
+  return Number(value);
+}
+
 async function generateServicePortalId() {
   return await Prisma.$transaction(async (tx) => {
     const latest = await tx.services.findFirst({
@@ -45,18 +55,23 @@ export const createServiceInfo = async (
   sessionInterval
 ) => {
   const normalizedSessionInterval = normalizeSessionInterval(sessionInterval);
+  const normalizedTaxPercentage = normalizeTaxPercentageForCreate(tax_percentage);
   return await Prisma.$transaction(async (tx) => {
     const portal = await generateServicePortalId();
     console.log("portal_id >>> ", portal);
-    const service = await Prisma.services.create({
+    const service = await tx.services.create({
       data: {
         name: serviceName,
         description: desc,
         price: price,
-        organization_id: orgId,
         portal_id: portal,
-        tax_percentage: tax_percentage,
+        tax_percentage: normalizedTaxPercentage,
         session_interval: normalizedSessionInterval,
+        organizations: {
+          connect: {
+            id: orgId,
+          },
+        },
       },
     });
     if (service)
@@ -144,6 +159,7 @@ export const updateServices = async ({
 }) => {
   console.log("tax_percentage ", tax_percentage);
   const normalizedSessionInterval = normalizeSessionInterval(sessionInterval);
+  const normalizedTaxPercentage = normalizeTaxPercentageForUpdate(tax_percentage);
   const updatedService = await Prisma.services.update({
     where: { id },
     data: {
@@ -152,7 +168,9 @@ export const updateServices = async ({
       ...(price !== undefined && { price }),
       ...(orgId !== undefined && { organization_id: orgId }),
       ...(status !== undefined && { status }),
-      ...(tax_percentage !== undefined && { tax_percentage }),
+      ...(normalizedTaxPercentage !== undefined && {
+        tax_percentage: normalizedTaxPercentage,
+      }),
       ...(sessionInterval !== undefined && {
         session_interval: normalizedSessionInterval,
       }),
