@@ -46,10 +46,24 @@ export const getKPIDataService = async (orgId, timezone = "Asia/Kolkata") => {
     },
   });
 
+  const monthStart = now.startOf("month").toUTC().toJSDate();
+  const monthEnd = now.endOf("month").toUTC().toJSDate();
+
+  const clientsBookedThisMonth = await Prisma.client_organization_category.count({
+    where: {
+      organization_id: orgId,
+      created_at: {
+        gte: monthStart,
+        lte: monthEnd,
+      },
+    },
+  });
+
   const kpiData = [
     { title: "Total Clients", amount: totalClients },
     { title: "Today Appointments", amount: todayAppointments },
     { title: "Today's Reminders", amount: todaysReminder },
+    { title: "New Clients this month", amount: clientsBookedThisMonth },
   ];
 
   return kpiData;

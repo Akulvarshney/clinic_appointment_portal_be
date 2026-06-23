@@ -27,6 +27,62 @@ function isInventoryBillLine(item) {
   );
 }
 
+function isDeletedInvoice(bill) {
+  return bill.bill_type === "INVOICE" && bill.billStatus === "DELETED";
+}
+
+function drawRotatedLabel(doc, label, centerX, centerY, fontSize, angleDeg) {
+  doc.fontSize(fontSize);
+  const totalWidth = doc.widthOfString(label);
+  const startX = centerX - totalWidth / 2;
+  const y = centerY - fontSize / 2;
+
+  doc.rotate(angleDeg, { origin: [centerX, centerY] });
+
+  let x = startX;
+  for (const char of label) {
+    const charWidth = doc.widthOfString(char);
+    doc.text(char, x, y, {
+      lineBreak: false,
+      width: charWidth + 2,
+    });
+    x += charWidth;
+  }
+}
+
+function drawDeletedWatermark(doc, baseFont, { variant = "a4" } = {}) {
+  const { width, height } = doc.page;
+  const label = "CANCELLED";
+
+  doc.save();
+  doc.opacity(0.18);
+  doc.fillColor("#888888");
+  doc.font(baseFont);
+
+  if (variant === "thermal") {
+    const topMargin = 95;
+    const fontSize = 32;
+    const centerX = width / 2;
+    const centerY = topMargin + fontSize / 2;
+    drawRotatedLabel(doc, label, centerX, centerY, fontSize, -45);
+  } else {
+    const fontSize = 80;
+    const centerX = width / 2;
+    const centerY = height / 2;
+    drawRotatedLabel(doc, label, centerX, centerY, fontSize, -45);
+  }
+
+  doc.restore();
+}
+
+function applyDeletedWatermarkToAllPages(doc, baseFont, options = {}) {
+  const range = doc.bufferedPageRange();
+  for (let i = range.start; i < range.start + range.count; i++) {
+    doc.switchToPage(i);
+    drawDeletedWatermark(doc, baseFont, options);
+  }
+}
+
 export const generateInvoicePdf = async (req, res) => {
   const { billId } = req.params;
   if (!billId) return res.status(400).json({ error: "Bill ID is required" });
@@ -50,6 +106,7 @@ export const generateInvoicePdf = async (req, res) => {
     const doc = new PDFDocument({
       size: "A4",
       margins: { top: 60, bottom: 60, left: 50, right: 50 },
+      bufferPages: true,
     });
 
     // Register font that supports ₹
@@ -365,6 +422,10 @@ export const generateInvoicePdf = async (req, res) => {
       .dash(2, { space: 2 })
       .stroke()
       .undash();
+
+    if (isDeletedInvoice(bill)) {
+      applyDeletedWatermarkToAllPages(doc, baseFont);
+    }
 
     doc.end();
   } catch (error) {
@@ -757,6 +818,10 @@ export const generateThermalInvoicePdf = async (req, res) => {
     // === Finalize Page Height ===
     const usedHeight = doc.y + 30;
     doc.page.size = [226, usedHeight];
+
+    if (isDeletedInvoice(bill)) {
+      applyDeletedWatermarkToAllPages(doc, baseFont, { variant: "thermal" });
+    }
 
     doc.end();
   } catch (error) {

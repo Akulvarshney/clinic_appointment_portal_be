@@ -429,6 +429,7 @@ model bills {
   round_off_enabled           Boolean           @default(true)
   shipping_charges            Decimal           @default(0) @db.Decimal(12, 2)
   status                      String            @default("draft") @db.VarChar(20)
+  billStatus                  bill_status_enum  @default(ACTIVE)
   sub_total                   Decimal           @db.Decimal(12, 2)
   taxable_after_discount      Decimal           @db.Decimal(12, 2)
   terms                       String?
@@ -625,6 +626,11 @@ enum booked_status {
 enum bill_type_enum {
   INVOICE
   QUOTATION
+}
+
+enum bill_status_enum {
+  ACTIVE
+  DELETED
 }
 
 enum bill_line_kind {

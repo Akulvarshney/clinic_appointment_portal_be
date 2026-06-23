@@ -529,7 +529,6 @@ export const getInvoices = async (req, res) => {
   try {
     const {
       organization_id,
-      client_id,
       status,
       search,
       bill_type,
@@ -550,10 +549,6 @@ export const getInvoices = async (req, res) => {
       is_valid: true,
       bill_type: bill_type,
     };
-
-    if (client_id) {
-      whereClause.client_id = client_id;
-    }
 
     if (status) {
       whereClause.status = status;
@@ -590,6 +585,7 @@ export const getInvoices = async (req, res) => {
         invoice_date: true,
         grand_total: true,
         status: true,
+        billStatus: true,
         invoice_reference: true,
         bill_to_text: true,
         bill_type: true,
@@ -613,7 +609,7 @@ export const getInvoices = async (req, res) => {
       skip: skip,
       take: take,
     });
-    //console.log("bills", bills);
+    console.log("bills >>> ", bills);
     const totalCount = await prisma.bills.count({
       where: whereClause,
     });
@@ -631,6 +627,7 @@ export const getInvoices = async (req, res) => {
         number_of_services: bill.bill_line_items.length,
         final_amount: bill.grand_total,
         status: bill.status,
+        billStatus: bill.billStatus,
         invoice_reference: bill.invoice_reference
           ? await getInvoiceReference(bill.invoice_reference)
           : null,
@@ -663,6 +660,69 @@ export const getInvoices = async (req, res) => {
     });
   }
 };
+
+export const getClientBills = async (req, res) => {
+  try {
+    const { orgId, clientId } = req.query;
+
+    if (!orgId || !clientId) {
+      return res.status(400).json({
+        error: "orgId and clientId are required",
+      });
+    }
+
+    const bills = await prisma.bills.findMany({
+      where: {
+        organization_id: orgId,
+        client_id: clientId,
+        is_valid: true,
+        billStatus: { not: "DELETED" },
+      },
+      select: {
+        id: true,
+        invoice_number: true,
+        invoice_date: true,
+        grand_total: true,
+        status: true,
+        billStatus: true,
+        bill_type: true,
+        bill_to_text: true,
+        invoice_reference: true,
+      },
+      orderBy: {
+        created_at: "desc",
+      },
+    });
+
+    const data = await Promise.all(
+      bills.map(async (bill) => ({
+        invoice_id: bill.id,
+        invoice_number: bill.invoice_number,
+        invoice_date: bill.invoice_date,
+        bill_type: bill.bill_type,
+        bill_to: bill.bill_to_text,
+        final_amount: bill.grand_total,
+        status: bill.status,
+        billStatus: bill.billStatus,
+        invoice_reference: bill.invoice_reference
+          ? await getInvoiceReference(bill.invoice_reference)
+          : null,
+      }))
+    );
+
+    return res.json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    console.error("Error fetching client bills:", error);
+    return res.status(500).json({
+      error: "Internal server error",
+      message: error.message,
+    });
+  }
+};
+
 export const saveAsInvoices = async (req, res) => {
   const { id, orgId } = req.query; // quotation id
   //console.log("SIddhant ", id, orgId);
@@ -827,6 +887,48 @@ export const getBillById = async (req, res) => {
     return res.status(500).json({
       success: false,
       error: "Failed to fetch bill details",
+    });
+  }
+};
+
+export const deleteBill = async (req, res) => {
+  try {
+    const { id, orgId } = req.body;
+
+    if (!id || !orgId) {
+      return res.status(400).json({ error: "id and orgId are required" });
+    }
+
+    const bill = await prisma.bills.findFirst({
+      where: {
+        id,
+        organization_id: orgId,
+        is_valid: true,
+      },
+    });
+
+    if (!bill) {
+      return res.status(404).json({ error: "Bill not found" });
+    }
+
+    if (bill.billStatus === "DELETED") {
+      return res.status(400).json({ error: "Bill is already deleted" });
+    }
+
+    await prisma.bills.update({
+      where: { id },
+      data: { billStatus: "DELETED" },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Bill deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error deleting bill:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to delete bill",
     });
   }
 };

@@ -1,14 +1,23 @@
 import Prisma from "../prisma.js";
+import { DateTime } from "luxon";
 
-function addDays(date, days) {
-  const base = new Date(date);
-  const year = base.getFullYear();
-  const month = base.getMonth();
-  const day = base.getDate();
+const APP_TIMEZONE = "Asia/Kolkata";
 
-  // Use UTC noon for DATE columns so timezone conversion does not shift
-  // the stored calendar date back by one day.
-  return new Date(Date.UTC(year, month, day + days, 12, 0, 0));
+function addCalendarDays(dateTime, days) {
+  const calendarDate = DateTime.fromJSDate(new Date(dateTime), { zone: APP_TIMEZONE })
+    .startOf("day")
+    .plus({ days });
+
+  // UTC noon keeps PostgreSQL DATE columns on the intended calendar day.
+  return new Date(
+    Date.UTC(calendarDate.year, calendarDate.month - 1, calendarDate.day, 12, 0, 0)
+  );
+}
+
+function formatCalendarDate(dateTime) {
+  return DateTime.fromJSDate(new Date(dateTime), { zone: APP_TIMEZONE }).toFormat(
+    "dd/MM/yyyy"
+  );
 }
 
 async function generateAppointmentPortal_id() {
@@ -194,13 +203,13 @@ export const changeAppointmentStatusService = async (id, status) => {
     data: {
       organization_id: appointment.organization_id,
       client_id: appointment.client_id,
-      reminderdate: addDays(new Date(), intervalDays),
+      reminderdate: addCalendarDays(new Date(), intervalDays),
       remindercomments: appointment.services?.name
-        ? `Follow-up for ${appointment.services.name} for Appt ID ${appointment.portal_id} on Appt Date ${new Date(
+        ? `Follow-up for ${appointment.services.name} for Appt ID ${appointment.portal_id} on Appt Date ${formatCalendarDate(
             appointment.date_time
-          ).toLocaleDateString("en-GB")}`
-        : `Follow-up with Appt ID ${appointment.portal_id} on Appt Date ${new Date(appointment.date_time).toLocaleDateString(
-            "en-GB"
+          )}`
+        : `Follow-up with Appt ID ${appointment.portal_id} on Appt Date ${formatCalendarDate(
+            appointment.date_time
           )}`,
     },
   });
