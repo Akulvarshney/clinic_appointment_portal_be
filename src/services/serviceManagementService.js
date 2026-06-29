@@ -16,6 +16,16 @@ function normalizeTaxPercentageForUpdate(value) {
   return Number(value);
 }
 
+function normalizePtcRequiredForCreate(value) {
+  if (value === undefined || value === null) return false;
+  return Boolean(value);
+}
+
+function normalizePtcRequiredForUpdate(value) {
+  if (value === undefined || value === null) return false;
+  return Boolean(value);
+}
+
 async function generateServicePortalId() {
   return await Prisma.$transaction(async (tx) => {
     const latest = await tx.services.findFirst({
@@ -52,10 +62,12 @@ export const createServiceInfo = async (
   price,
   orgId,
   tax_percentage,
-  sessionInterval
+  sessionInterval,
+  PTC
 ) => {
   const normalizedSessionInterval = normalizeSessionInterval(sessionInterval);
   const normalizedTaxPercentage = normalizeTaxPercentageForCreate(tax_percentage);
+  const normalizedPtcRequired = normalizePtcRequiredForCreate(PTC);
   return await Prisma.$transaction(async (tx) => {
     const portal = await generateServicePortalId();
     console.log("portal_id >>> ", portal);
@@ -67,6 +79,7 @@ export const createServiceInfo = async (
         portal_id: portal,
         tax_percentage: normalizedTaxPercentage,
         session_interval: normalizedSessionInterval,
+        ptc_required: normalizedPtcRequired,
         organizations: {
           connect: {
             id: orgId,
@@ -156,10 +169,12 @@ export const updateServices = async ({
   status,
   tax_percentage,
   sessionInterval,
+  PTC,
 }) => {
   console.log("tax_percentage ", tax_percentage);
   const normalizedSessionInterval = normalizeSessionInterval(sessionInterval);
   const normalizedTaxPercentage = normalizeTaxPercentageForUpdate(tax_percentage);
+  const normalizedPtcRequired = normalizePtcRequiredForUpdate(PTC);
   const updatedService = await Prisma.services.update({
     where: { id },
     data: {
@@ -173,6 +188,9 @@ export const updateServices = async ({
       }),
       ...(sessionInterval !== undefined && {
         session_interval: normalizedSessionInterval,
+      }),
+      ...(normalizedPtcRequired !== undefined && {
+        ptc_required: normalizedPtcRequired,
       }),
     },
   });

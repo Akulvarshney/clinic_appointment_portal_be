@@ -7,7 +7,7 @@ import {
 } from "../services/serviceManagementService.js";
 export const createServiceController = async (req, res) => {
   try {
-    const { serviceName, desc, price, orgId, tax_percentage, sessionInterval } =
+    const { serviceName, desc, price, orgId, tax_percentage, sessionInterval, PTC } =
       req.body;
     const response = await createServiceInfo(
       serviceName,
@@ -15,7 +15,8 @@ export const createServiceController = async (req, res) => {
       price,
       orgId,
       tax_percentage,
-      sessionInterval
+      sessionInterval,
+      PTC
     );
     sendResponse(
       res,
@@ -93,6 +94,7 @@ export const updateServicesController = async (req, res) => {
       status,
       tax_percentage,
       sessionInterval,
+      PTC,
     } = req.body;
 
     if (!id) {
@@ -108,6 +110,7 @@ export const updateServicesController = async (req, res) => {
       status,
       tax_percentage,
       sessionInterval,
+      PTC,
     });
     console.log("response ", response);
     sendResponse(

@@ -274,6 +274,7 @@ model services {
   portal_id               String?                   @unique
   status                  services_status_enum      @default(ENABLED)
   tax_percentage          Int                       @default(18)
+  ptc_required            Boolean                   @default(false)
   appointments            appointments[]
   bill_line_items         bill_line_items[]
   receipt_bill_line_items receipt_bill_line_items[]

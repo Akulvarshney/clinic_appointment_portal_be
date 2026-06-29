@@ -20,6 +20,11 @@ function formatCalendarDate(dateTime) {
   );
 }
 
+function formatClientName(client) {
+  if (!client) return "";
+  return [client.first_name, client.last_name].filter(Boolean).join(" ");
+}
+
 async function generateAppointmentPortal_id() {
   return await Prisma.$transaction(async (tx) => {
     const latest = await tx.appointments.findFirst({
@@ -159,11 +164,20 @@ export const changeAppointmentStatusService = async (id, status) => {
   const appointment = await Prisma.appointments.findFirst({
     where: { id },
     include: {
+      clients: {
+        select: {
+          first_name: true,
+          last_name: true,
+          portalid: true,
+          
+        },
+      },
       services: {
         select: {
           id: true,
           name: true,
           session_interval: true,
+          ptc_required: true,
         },
       },
     },
@@ -185,34 +199,71 @@ export const changeAppointmentStatusService = async (id, status) => {
   const shouldCreateReminder =
     status === "VISITED" && appointment.status !== "VISITED";
 
-  if (!shouldCreateReminder) {
-    return updatedAppointment;
-  }
+  if (shouldCreateReminder) {
+    const intervalDays = parseInt(appointment.services?.session_interval, 10);
+    if (
+      appointment.client_id &&
+      appointment.organization_id &&
+      Number.isFinite(intervalDays) &&
+      intervalDays > 0
+    ) {
+      await Prisma.reminder.create({
+        data: {
+          organization_id: appointment.organization_id,
+          client_id: appointment.client_id,
+          reminderdate: addCalendarDays(new Date(), intervalDays),
+          remindercomments: `FOLLOW UP for ${appointment.services.name} for Client ${appointment.clients?.first_name} (${appointment.clients?.portalid}) for Appt ID ${appointment.portal_id} on Appt Date ${formatCalendarDate(
+                appointment.date_time
+              )}`
+           ,
+        },
+      });
+    }
 
-  const intervalDays = parseInt(appointment.services?.session_interval, 10);
-  if (
-    !appointment.client_id ||
-    !appointment.organization_id ||
-    !Number.isFinite(intervalDays) ||
-    intervalDays <= 0
-  ) {
-    return updatedAppointment;
-  }
-
-  await Prisma.reminder.create({
-    data: {
-      organization_id: appointment.organization_id,
-      client_id: appointment.client_id,
-      reminderdate: addCalendarDays(new Date(), intervalDays),
-      remindercomments: appointment.services?.name
-        ? `Follow-up for ${appointment.services.name} for Appt ID ${appointment.portal_id} on Appt Date ${formatCalendarDate(
-            appointment.date_time
-          )}`
-        : `Follow-up with Appt ID ${appointment.portal_id} on Appt Date ${formatCalendarDate(
+    if (
+      appointment.client_id &&
+      appointment.organization_id &&
+      appointment.services?.ptc_required &&  appointment.status !== "VISITED"
+    ) {
+      const clientName = formatClientName(appointment.clients);
+      await Prisma.reminder.create({
+        data: {
+          organization_id: appointment.organization_id,
+          client_id: appointment.client_id,
+          reminderdate: addCalendarDays(new Date(), 1),
+          remindercomments: `PTC for Client ${clientName} (${appointment.clients?.portalid}) for Appt ID ${appointment.portal_id} on Appt Date ${formatCalendarDate(
             appointment.date_time
           )}`,
-    },
-  });
+        },
+      });
+    }
+  }
+
+  const shouldCreateNoShowReminder =
+    status === "NO_SHOW" && appointment.status !== "NO_SHOW";
+
+  if (shouldCreateNoShowReminder) {
+    const intervalDays = parseInt(appointment.services?.session_interval, 10);
+    if (
+      appointment.client_id &&
+      appointment.organization_id &&
+      Number.isFinite(intervalDays) &&
+      intervalDays > 0
+    ) {
+      const clientName = formatClientName(appointment.clients);
+      const serviceName = appointment.services?.name || "";
+      await Prisma.reminder.create({
+        data: {
+          organization_id: appointment.organization_id,
+          client_id: appointment.client_id,
+          reminderdate: addCalendarDays(new Date(), 1),
+          remindercomments: `No SHOW for Client ${clientName}( ${appointment.clients?.portalid} ). Service : ${serviceName} for Appt ID ${appointment.portal_id} on Appt Date ${formatCalendarDate(
+            appointment.date_time
+          )}`,
+        },
+      });
+    }
+  }
 
   return updatedAppointment;
 };
