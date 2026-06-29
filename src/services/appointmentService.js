@@ -25,6 +25,13 @@ function formatClientName(client) {
   return [client.first_name, client.last_name].filter(Boolean).join(" ");
 }
 
+function getClientPortalId(client, organizationId) {
+  const orgCategory = client?.client_organization_category?.find(
+    (row) => row.organization_id === organizationId
+  );
+  return orgCategory?.portal_id || client?.portalid || "";
+}
+
 async function generateAppointmentPortal_id() {
   return await Prisma.$transaction(async (tx) => {
     const latest = await tx.appointments.findFirst({
@@ -169,7 +176,12 @@ export const changeAppointmentStatusService = async (id, status) => {
           first_name: true,
           last_name: true,
           portalid: true,
-          
+          client_organization_category: {
+            select: {
+              organization_id: true,
+              portal_id: true,
+            },
+          },
         },
       },
       services: {
@@ -199,6 +211,11 @@ export const changeAppointmentStatusService = async (id, status) => {
   const shouldCreateReminder =
     status === "VISITED" && appointment.status !== "VISITED";
 
+  const clientPortalId = getClientPortalId(
+    appointment.clients,
+    appointment.organization_id
+  );
+
   if (shouldCreateReminder) {
     const intervalDays = parseInt(appointment.services?.session_interval, 10);
     if (
@@ -212,7 +229,7 @@ export const changeAppointmentStatusService = async (id, status) => {
           organization_id: appointment.organization_id,
           client_id: appointment.client_id,
           reminderdate: addCalendarDays(new Date(), intervalDays),
-          remindercomments: `FOLLOW UP for ${appointment.services.name} for Client ${appointment.clients?.first_name} (${appointment.clients?.portalid}) for Appt ID ${appointment.portal_id} on Appt Date ${formatCalendarDate(
+          remindercomments: `FOLLOW UP for ${appointment.services.name} for Client ${appointment.clients?.first_name} (${clientPortalId}) for Appt ID ${appointment.portal_id} on Appt Date ${formatCalendarDate(
                 appointment.date_time
               )}`
            ,
@@ -231,7 +248,7 @@ export const changeAppointmentStatusService = async (id, status) => {
           organization_id: appointment.organization_id,
           client_id: appointment.client_id,
           reminderdate: addCalendarDays(new Date(), 1),
-          remindercomments: `PTC for Client ${clientName} (${appointment.clients?.portalid}) for Appt ID ${appointment.portal_id} on Appt Date ${formatCalendarDate(
+          remindercomments: `PTC for Client ${clientName} (${clientPortalId}) for Appt ID ${appointment.portal_id} on Appt Date ${formatCalendarDate(
             appointment.date_time
           )}`,
         },
@@ -257,7 +274,7 @@ export const changeAppointmentStatusService = async (id, status) => {
           organization_id: appointment.organization_id,
           client_id: appointment.client_id,
           reminderdate: addCalendarDays(new Date(), 1),
-          remindercomments: `No SHOW for Client ${clientName}( ${appointment.clients?.portalid} ). Service : ${serviceName} for Appt ID ${appointment.portal_id} on Appt Date ${formatCalendarDate(
+          remindercomments: `No SHOW for Client ${clientName}( ${clientPortalId} ). Service : ${serviceName} for Appt ID ${appointment.portal_id} on Appt Date ${formatCalendarDate(
             appointment.date_time
           )}`,
         },
