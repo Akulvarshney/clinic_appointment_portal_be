@@ -239,6 +239,7 @@ export const createInvoice = async (req, res) => {
           grand_total_before_rounding: parseFloat(grand_total_before_rounding),
           grand_total: parseFloat(grand_total),
           bill_to_text,
+          // Direct invoice creation uses bill_from_text sent by the frontend; GSTIN is included there.
           bill_from_text,
           notes,
           terms,
@@ -758,8 +759,10 @@ export const saveAsInvoices = async (req, res) => {
           discount_percentage: quotation.discount_percentage,
           is_valid: true,
           bill_type: "INVOICE",
-          bill_from_text:
-            quotation.bill_from_text + "\n" + orgBillingDetails.gst_number,
+          // GSTIN append is commented out just for now during invoice creation from quotation to remove gst number from the invoice.
+          // bill_from_text:
+          //   quotation.bill_from_text + "\n" + orgBillingDetails.gst_number,
+          bill_from_text: quotation.bill_from_text,
           bill_to_text: quotation.bill_to_text,
           discount_amount: quotation.discount_amount,
           due_date: quotation.due_date,
