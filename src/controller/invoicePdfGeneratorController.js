@@ -383,14 +383,14 @@ export const generateInvoicePdf = async (req, res) => {
     //   });
     //   currentY += 40;
     // }
-    if (bill.terms) {
-      doc.fontSize(10).font(baseFont);
-      doc.text("Notes", leftMargin, currentY);
-      doc.text(bill.terms, leftMargin, currentY + 12, {
-        width: usableWidth,
-      });
-      currentY += 40;
-    }
+    // if (bill.terms) {
+    //   doc.fontSize(10).font(baseFont);
+    //   doc.text("Notes", leftMargin, currentY);
+    //   doc.text(bill.terms, leftMargin, currentY + 12, {
+    //     width: usableWidth,
+    //   });
+    //   currentY += 40;
+    // }
 
     // === Signature / Stamp ===
     // Place signature block ~100px from bottom, but below current content
