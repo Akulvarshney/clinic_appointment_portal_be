@@ -375,14 +375,14 @@ export const generateInvoicePdf = async (req, res) => {
 
     // === Notes & Terms ===
     currentY += 20;
-    if (bill.notes) {
-      doc.fontSize(9).font(baseFont);
-      doc.text("Notes:", leftMargin, currentY);
-      doc.text(bill.notes, leftMargin, currentY + 12, {
-        width: usableWidth,
-      });
-      currentY += 40;
-    }
+    // if (bill.notes) {
+    //   doc.fontSize(9).font(baseFont);
+    //   doc.text("Notes:", leftMargin, currentY);
+    //   doc.text(bill.notes, leftMargin, currentY + 12, {
+    //     width: usableWidth,
+    //   });
+    //   currentY += 40;
+    // }
     if (bill.terms) {
       doc.fontSize(10).font(baseFont);
       doc.text("Notes", leftMargin, currentY);
@@ -781,20 +781,20 @@ export const generateThermalInvoicePdf = async (req, res) => {
     doc.moveDown(0.3);
 
     // === Notes & Terms ===
-    if (bill.notes || bill.terms) {
-      if (bill.notes) {
-        doc.font(baseFont).fontSize(8).text("Notes:", 8, doc.y);
-        doc.fontSize(7).text(bill.notes, 8, doc.y + 10, { width: 210 });
-        doc.moveDown(0.5);
-      }
-      if (bill.terms) {
-        doc.fontSize(8).text("Terms:", 8, doc.y);
-        doc.fontSize(7).text(bill.terms, 8, doc.y + 10, { width: 210 });
-        doc.moveDown(0.5);
-      }
-      drawLine();
-      doc.moveDown(0.2);
-    }
+    // if (bill.notes || bill.terms) {
+    //   if (bill.notes) {
+    //     doc.font(baseFont).fontSize(8).text("Notes:", 8, doc.y);
+    //     doc.fontSize(7).text(bill.notes, 8, doc.y + 10, { width: 210 });
+    //     doc.moveDown(0.5);
+    //   }
+    //   if (bill.terms) {
+    //     doc.fontSize(8).text("Terms:", 8, doc.y);
+    //     doc.fontSize(7).text(bill.terms, 8, doc.y + 10, { width: 210 });
+    //     doc.moveDown(0.5);
+    //   }
+    //   drawLine();
+    //   doc.moveDown(0.2);
+    // }
 
     // === Footer ===
     doc
