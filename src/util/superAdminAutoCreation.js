@@ -37,14 +37,20 @@ export const ensureSuperAdminExists = async () => {
 
 export const syncTabsAndFeatures = async () => {
   console.log("🔄 Synchronizing Tabs and Features...");
+  const startTime = Date.now();
 
+  // 1. Fetch all existing tabs and features to minimize DB queries
+  const existingTabs = await prisma.tabs.findMany();
+  const tabMap = new Map(existingTabs.map((t) => [t.tab_unique_name, t]));
+
+  const existingFeatures = await prisma.feature.findMany();
+  const featureMap = new Map(
+    existingFeatures.map((f) => [f.feature_unique_name, f])
+  );
+
+  // 2. Sync Tabs
   for (const tabConfig of tabFeatureConfig) {
-    console.log(`🔄 Syncing tab: ${tabConfig.tab_name}`);
-
-    let tab = await prisma.tabs.findUnique({
-      where: { tab_unique_name: tabConfig.tab_unique_name },
-    });
-
+    let tab = tabMap.get(tabConfig.tab_unique_name);
     if (!tab) {
       tab = await prisma.tabs.create({
         data: {
@@ -54,22 +60,23 @@ export const syncTabsAndFeatures = async () => {
           is_valid: true,
         },
       });
-    } else {
-      if (tab.tab_path !== tabConfig.tab_path) {
-        tab = await prisma.tabs.update({
-          where: { id: tab.id },
-          data: { tab_path: tabConfig.tab_path || null },
-        });
-      }
-    }
-
-    for (const featureConfig of tabConfig.features) {
-      const existingFeature = await prisma.feature.findUnique({
-        where: { feature_unique_name: featureConfig.feature_unique_name },
+      tabMap.set(tab.tab_unique_name, tab);
+    } else if (tab.tab_path !== tabConfig.tab_path) {
+      tab = await prisma.tabs.update({
+        where: { id: tab.id },
+        data: { tab_path: tabConfig.tab_path || null },
       });
+      tabMap.set(tab.tab_unique_name, tab);
+    }
+  }
 
-      if (!existingFeature) {
-        await prisma.feature.create({
+  // 3. Sync Features
+  for (const tabConfig of tabFeatureConfig) {
+    const tab = tabMap.get(tabConfig.tab_unique_name);
+    for (const featureConfig of tabConfig.features) {
+      let feature = featureMap.get(featureConfig.feature_unique_name);
+      if (!feature) {
+        feature = await prisma.feature.create({
           data: {
             tab_id: tab.id,
             feature_unique_name: featureConfig.feature_unique_name,
@@ -77,66 +84,127 @@ export const syncTabsAndFeatures = async () => {
             is_valid: true,
           },
         });
+        featureMap.set(feature.feature_unique_name, feature);
       }
     }
+  }
 
-    const roles = await prisma.roles.findMany();
+  // 4. Fetch all roles and existing tab-roles mapping
+  const roles = await prisma.roles.findMany();
+  const existingTabRoles = await prisma.tabs_role_table.findMany();
+  let tabRoleMap = new Map(
+    existingTabRoles.map((tr) => [`${tr.tab_id}_${tr.role_id}`, tr])
+  );
 
+  const tabRolesToCreate = [];
+  const tabRolesToUpdate = [];
+
+  for (const tabConfig of tabFeatureConfig) {
+    const tab = tabMap.get(tabConfig.tab_unique_name);
     for (const role of roles) {
-      console.log(`🔄 Syncing tab-role for role: ${role.name}`);
-
-      let tabRole = await prisma.tabs_role_table.findFirst({
-        where: { tab_id: tab.id, role_id: role.id },
-      });
-
+      const key = `${tab.id}_${role.id}`;
+      const tabRole = tabRoleMap.get(key);
       const tabRoleIsValid = role.is_admin || false;
 
       if (!tabRole) {
-        tabRole = await prisma.tabs_role_table.create({
-          data: {
-            tab_id: tab.id,
-            role_id: role.id,
-            is_valid: tabRoleIsValid,
-          },
+        tabRolesToCreate.push({
+          tab_id: tab.id,
+          role_id: role.id,
+          is_valid: tabRoleIsValid,
         });
       } else if (role.is_admin && !tabRole.is_valid) {
-        tabRole = await prisma.tabs_role_table.update({
-          where: { id: tabRole.id },
-          data: { is_valid: true },
-        });
+        tabRolesToUpdate.push(tabRole.id);
       }
+    }
+  }
 
-      const allTabFeatures = await prisma.feature.findMany({
-        where: { tab_id: tab.id },
-      });
+  // Bulk create new tab-roles
+  if (tabRolesToCreate.length > 0) {
+    console.log(`🔄 Bulk creating ${tabRolesToCreate.length} tab-roles...`);
+    await prisma.tabs_role_table.createMany({
+      data: tabRolesToCreate,
+    });
+  }
+
+  // Bulk update invalid admin tab-roles
+  if (tabRolesToUpdate.length > 0) {
+    console.log(`🔄 Bulk updating ${tabRolesToUpdate.length} tab-roles...`);
+    await prisma.tabs_role_table.updateMany({
+      where: { id: { in: tabRolesToUpdate } },
+      data: { is_valid: true },
+    });
+  }
+
+  // If we created or updated any tab-roles, re-fetch them to update our in-memory map
+  if (tabRolesToCreate.length > 0 || tabRolesToUpdate.length > 0) {
+    const allTabRoles = await prisma.tabs_role_table.findMany();
+    tabRoleMap = new Map(
+      allTabRoles.map((tr) => [`${tr.tab_id}_${tr.role_id}`, tr])
+    );
+  }
+
+  // 5. Fetch all existing feature-tab-roles mapping
+  const existingFeatureTabRoles = await prisma.feature_tab_role.findMany();
+  const featureTabRoleMap = new Map(
+    existingFeatureTabRoles.map((ftr) => [
+      `${ftr.tab_role_id}_${ftr.feature_id}`,
+      ftr,
+    ])
+  );
+
+  const featureTabRolesToCreate = [];
+  const featureTabRolesToUpdate = [];
+
+  for (const tabConfig of tabFeatureConfig) {
+    const tab = tabMap.get(tabConfig.tab_unique_name);
+    const allTabFeatures = Array.from(featureMap.values()).filter(
+      (f) => f.tab_id === tab.id
+    );
+
+    for (const role of roles) {
+      const tabRoleKey = `${tab.id}_${role.id}`;
+      const tabRole = tabRoleMap.get(tabRoleKey);
+      if (!tabRole) continue;
+
+      const featureIsValid = role.is_admin || false;
 
       for (const feature of allTabFeatures) {
-        const featureTabRole = await prisma.feature_tab_role.findFirst({
-          where: {
-            tab_role_id: tabRole.id,
-            feature_id: feature.id,
-          },
-        });
-
-        const featureIsValid = role.is_admin || false;
+        const ftrKey = `${tabRole.id}_${feature.id}`;
+        const featureTabRole = featureTabRoleMap.get(ftrKey);
 
         if (!featureTabRole) {
-          await prisma.feature_tab_role.create({
-            data: {
-              feature_id: feature.id,
-              tab_role_id: tabRole.id,
-              is_valid: featureIsValid,
-            },
+          featureTabRolesToCreate.push({
+            tab_role_id: tabRole.id,
+            feature_id: feature.id,
+            is_valid: featureIsValid,
           });
         } else if (role.is_admin && !featureTabRole.is_valid) {
-          await prisma.feature_tab_role.update({
-            where: { id: featureTabRole.id },
-            data: { is_valid: true },
-          });
+          featureTabRolesToUpdate.push(featureTabRole.id);
         }
       }
     }
   }
 
-  console.log("✅ Tabs and Features synchronized");
+  // Bulk create new feature-tab-roles
+  if (featureTabRolesToCreate.length > 0) {
+    console.log(
+      `🔄 Bulk creating ${featureTabRolesToCreate.length} feature-tab-roles...`
+    );
+    await prisma.feature_tab_role.createMany({
+      data: featureTabRolesToCreate,
+    });
+  }
+
+  // Bulk update invalid admin feature-tab-roles
+  if (featureTabRolesToUpdate.length > 0) {
+    console.log(
+      `🔄 Bulk updating ${featureTabRolesToUpdate.length} feature-tab-roles...`
+    );
+    await prisma.feature_tab_role.updateMany({
+      where: { id: { in: featureTabRolesToUpdate } },
+      data: { is_valid: true },
+    });
+  }
+
+  console.log(`✅ Tabs and Features synchronized in ${Date.now() - startTime}ms`);
 };

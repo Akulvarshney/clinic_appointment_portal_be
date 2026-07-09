@@ -166,7 +166,7 @@ export const tabFeatureConfig = [
       { feature_unique_name: "PRINT_INVOICES", feature_name: "Print Invoices" },
       { feature_unique_name: "EDIT_QUOTATION", feature_name: "Edit Quotation" },
       { feature_unique_name: "DELETE_BILL", feature_name: "Delete Bill" },
-      
+
     ],
   },
   {
@@ -176,11 +176,7 @@ export const tabFeatureConfig = [
     tab_path: "/settings",
     features: [
       { feature_unique_name: "PROFILE_PAGE", feature_name: "Profile Page" },
-      { feature_unique_name: "MANAGE_USERS", feature_name: "Manage Users" },
-      {
-        feature_unique_name: "SYSTEM_PREFERENCES",
-        feature_name: "System Preferences",
-      },
+
       {
         feature_unique_name: "ROLE_MANAGEMENT",
         feature_name: "Role Management",
@@ -256,4 +252,24 @@ export const tabFeatureConfig = [
       { feature_unique_name: "EXPORT_LEADS", feature_name: "Export Leads" },
     ],
   },
+  {
+    tab_number: 14,
+    tab_unique_name: "WHATSAPP_NOTIFICATION",
+    tab_name: "Whatsapp Notification",
+    tab_path: "/whatsappNotification",
+    features: [
+      {
+        feature_unique_name: "WHATSAPP_NOTIFICAION_LOGS", feature_name: "Logs",
+      },
+      {
+        feature_unique_name: "WHATSAPP_RECHARGE", feature_name: "Recharge",
+      },
+      {
+        feature_unique_name: "WHATSAPP_MANAGE_NOTIFICAION", feature_name: "Manage Notification",
+      },
+      {
+        feature_unique_name: "WHATSAPP_TEMPLATE_LISTING", feature_name: "Template Listing"
+      }
+    ]
+  }
 ];
