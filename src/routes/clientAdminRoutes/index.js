@@ -8,6 +8,7 @@ import invoiceRoutes from "./invoiceManagementRoutes.js";
 import receiptRoutes from "./receiptManagementRoutes.js";
 import inventoryRoutes from "./inventoryManagementRoutes.js";
 import feedbackRoutes from "./feedbackRoutes.js";
+import whatsappRoutes from "./whatsappRoutes.js";
 
 const router = Router();
 
@@ -20,5 +21,6 @@ router.use("/invoices", invoiceRoutes);
 router.use("/receipts", receiptRoutes);
 router.use("/inventoryManagement", inventoryRoutes);
 router.use("/feedback", feedbackRoutes);
+router.use("/whatsapp", whatsappRoutes);
 
 export default router;

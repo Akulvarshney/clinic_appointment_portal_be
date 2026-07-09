@@ -35,6 +35,7 @@ model clients {
   users                        users                          @relation(fields: [userid], references: [id], onDelete: NoAction, onUpdate: NoAction)
   receipts                     receipts[]
   reminder                     reminder[]
+  whatsapp_logs                whatsapp_logs[]
 }
 
 model organization_applications {
@@ -88,6 +89,10 @@ model organizations {
   inventory_batches            inventory_batches[]
   inventory_transactions       inventory_transactions[]
   feedback                     feedback[]
+  whatsapp_enabled                 Boolean                           @default(false)
+  whatsapp_credits                 Float                             @default(0.0)
+  whatsapp_logs                    whatsapp_logs[]
+  whatsapp_templates_organizations whatsapp_templates_organizations[]
 }
 
 model roles {
@@ -310,6 +315,7 @@ model appointments {
   resources        resources          @relation(fields: [resource_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   services         services?          @relation(fields: [service_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   employees        employees?         @relation(fields: [employee_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_appointments_employees")
+  whatsapp_logs    whatsapp_logs[]
 
   @@index([client_id], map: "idx_appointments_client_id")
   @@index([date_time], map: "idx_appointments_date_time")
@@ -724,4 +730,53 @@ enum inventory_transaction_type {
 enum inventory_type {
   RETAIL
   CONSUMABLE
+}
+
+model whatsapp_templates {
+  id                               String                             @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name                             String                             @unique @db.VarChar(100) // e.g. "APPOINTMENT_BOOKED"
+  twilio_template_name             String                             @db.VarChar(100)
+  body                             String                             @db.VarChar(1000)
+  credit_cost                      Float                              @default(1.0)
+  is_valid                         Boolean                            @default(true)
+  created_at                       DateTime?                          @default(now()) @db.Timestamptz(6)
+  updated_at                       DateTime?                          @default(now()) @db.Timestamptz(6)
+  whatsapp_templates_organizations whatsapp_templates_organizations[]
+}
+
+model whatsapp_templates_organizations {
+  id                  String             @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  template_id         String             @db.Uuid
+  organization_id     String             @db.Uuid
+  is_active           Boolean            @default(false)
+  created_at          DateTime?          @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime?          @default(now()) @db.Timestamptz(6)
+  whatsapp_templates  whatsapp_templates @relation(fields: [template_id], references: [id], onDelete: Cascade)
+  organizations       organizations      @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+
+  @@unique([template_id, organization_id], map: "uq_whatsapp_template_org")
+}
+
+model whatsapp_logs {
+  id                String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organization_id   String          @db.Uuid
+  client_id         String?         @db.Uuid
+  appointment_id    String?         @db.Uuid
+  phone_number      String          @db.VarChar(30)
+  template_name     String          @db.VarChar(100)
+  message_body      String          @db.VarChar(1000)
+  twilio_sid        String?         @db.VarChar(100)
+  status            String          @default("PENDING") // PENDING, SUCCESS, FAILED
+  error_message     String?         @db.VarChar(500)
+  credits_deducted  Float           @default(0.0)
+  created_at        DateTime?       @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime?       @default(now()) @db.Timestamptz(6)
+  organizations     organizations   @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  clients           clients?        @relation(fields: [client_id], references: [id], onDelete: SetNull)
+  appointments      appointments?   @relation(fields: [appointment_id], references: [id], onDelete: SetNull)
+}
+
+model system_settings {
+  key               String          @id @db.VarChar(100)
+  value             String          @db.VarChar(500)
 }

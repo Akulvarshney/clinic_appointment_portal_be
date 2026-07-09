@@ -6,6 +6,7 @@ import {
   syncTabsAndFeatures,
 } from "./src/util/superAdminAutoCreation.js";
 import prisma from "./src/prisma.js";
+import { seedWhatsappTemplates } from "./src/util/seedWhatsapp.js";
 const { Pool } = pkg;
 
 dotenv.config();
@@ -38,8 +39,10 @@ pool.on("error", (err) => {
     await prisma.$connect();
     console.log("✅ Prisma connected");
 
+    await seedWhatsappTemplates();
+
     // await ensureSuperAdminExists();
-    // await syncTabsAndFeatures();
+    await syncTabsAndFeatures();
 
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
