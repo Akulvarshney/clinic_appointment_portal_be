@@ -60,7 +60,7 @@ export const getStatusList = async (status) => {
       application_status: status,
     },
   });
-  console.log("records here ", records);
+  // console.log("records here ", records);
   if (!records) {
     throw new Error("No Data Found ");
   }

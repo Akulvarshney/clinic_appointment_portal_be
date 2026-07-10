@@ -12,8 +12,17 @@ import {
   getALLNotifications,
   changeNotificationStatusMaster,
 } from "../../controller/notificationCenterController.js";
+import {
+  getOrganizationDetailsForSAController,
+  getOrganizationAdminTabsController,
+  updateOrganizationAdminTabsController,
+} from "../../controller/organizationAdminController.js";
 
 const router = Router();
+
+router.get("/organizationDetails/:shortName", getOrganizationDetailsForSAController);
+router.get("/organizationAdminTabs/:shortName", getOrganizationAdminTabsController);
+router.put("/organizationAdminTabs/:shortName", updateOrganizationAdminTabsController);
 
 router.get("/getApplications/:status", validateStatus, getApplicationStausList); // Get liost based on status
 

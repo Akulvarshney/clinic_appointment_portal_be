@@ -113,16 +113,56 @@ export const getTabsAndFeaturesByRoleController = async (req, res) => {
 
     console.log("Fetching tabs and features for roleId:", roleId);
 
+    // Get the requested role to find its organization
+    const targetRole = await prisma.roles.findUnique({
+      where: { id: roleId }
+    });
+
+    if (!targetRole) {
+      return res.status(404).json({ success: false, message: "Role not found" });
+    }
+
+    // Find the ADMIN role for this organization
+    const adminRole = await prisma.roles.findFirst({
+      where: {
+        organization_id: targetRole.organization_id,
+        name: "ADMIN",
+        is_admin: true,
+      }
+    });
+
+    let validTabIds = null;
+    let validFeatureIds = null;
+
+    if (adminRole) {
+      // Find which tabs the ADMIN has access to
+      const adminTabs = await prisma.tabs_role_table.findMany({
+        where: { role_id: adminRole.id, is_valid: true }
+      });
+      validTabIds = adminTabs.map(t => t.tab_id);
+
+      // Find which features the ADMIN has access to
+      const adminFeatures = await prisma.feature_tab_role.findMany({
+        where: {
+          tab_role_id: { in: adminTabs.map(t => t.id) },
+          is_valid: true
+        }
+      });
+      validFeatureIds = adminFeatures.map(f => f.feature_id);
+    }
+
+    // Now fetch the requested role's tabs, filtered by what the ADMIN is allowed to see
     const tabRoles = await prisma.tabs_role_table.findMany({
       where: {
         role_id: roleId,
-        // is_valid: true,
+        ...(validTabIds && { tab_id: { in: validTabIds } })
       },
       include: {
-        tabs: true, // 'tabs' is the relation field to the `tabs` table
+        tabs: true,
         feature_tab_role: {
+          where: validFeatureIds ? { feature_id: { in: validFeatureIds } } : undefined,
           include: {
-            feature: true, // 'feature' is the relation field to the `feature` table
+            feature: true,
           },
         },
       },
