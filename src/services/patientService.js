@@ -283,33 +283,40 @@ export const clientListingService = async ({
 };
 
 export const clientSearchService = async (search, limit, orgId) => {
-  console.log(orgId);
-  console.log(search);
+  // NOTE: `clients` has no `organization_id` column - org membership is
+  // resolved via the client_organization_category join table (same pattern
+  // used by clientListingService above).
+  const clientFilter = search
+    ? {
+        OR: [
+          { first_name: { contains: search, mode: "insensitive" } },
+          { last_name: { contains: search, mode: "insensitive" } },
+          { phone: { contains: search } },
+        ],
+      }
+    : {};
+
   const whereClause = {
-    OR: [
-      { first_name: { contains: search, mode: "insensitive" } },
-      { phone: { contains: search } },
-    ],
     organization_id: orgId,
+    clients: clientFilter,
   };
 
-  const clients = await Prisma.clients.findMany({
-    // where: search ? whereClause : undefined,
+  const categoriesWithClients = await Prisma.client_organization_category.findMany({
     where: whereClause,
-    orderBy: { first_name: "asc" },
+    orderBy: { clients: { first_name: "asc" } },
     take: limit ? parseInt(limit, 10) : 5,
     include: {
-      //categories: true,
-      client_organization_category: {
-        include: {
-          categories: true,
-        },
-      },
+      clients: true,
+      categories: true,
     },
   });
-  console.log(clients);
 
-  const totalCount = await Prisma.clients.count({
+  const clients = categoriesWithClients.map((c) => ({
+    ...c.clients,
+    client_organization_category: [c],
+  }));
+
+  const totalCount = await Prisma.client_organization_category.count({
     where: whereClause,
   });
 

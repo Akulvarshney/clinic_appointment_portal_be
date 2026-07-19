@@ -256,4 +256,18 @@ export const tabFeatureConfig = [
       { feature_unique_name: "EXPORT_LEADS", feature_name: "Export Leads" },
     ],
   },
+  {
+    tab_number: 14,
+    tab_unique_name: "VOICE_CALLS",
+    tab_name: "Voice Calls",
+    tab_path: "/voice-calls",
+    features: [
+      { feature_unique_name: "VIEW_VOICE_CALLS", feature_name: "View Voice Calls" },
+      { feature_unique_name: "MAKE_VOICE_CALL", feature_name: "Make Voice Call" },
+      {
+        feature_unique_name: "MANAGE_VOICE_CONFIGURATION",
+        feature_name: "Manage Voice Configuration",
+      },
+    ],
+  },
 ];

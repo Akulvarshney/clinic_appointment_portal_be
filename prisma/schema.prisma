@@ -35,6 +35,8 @@ model clients {
   users                        users                          @relation(fields: [userid], references: [id], onDelete: NoAction, onUpdate: NoAction)
   receipts                     receipts[]
   reminder                     reminder[]
+   whatsapp_logs                whatsapp_logs[]
+  voice_call_logs              VoiceCallLog[]
 }
 
 model organization_applications {
@@ -55,39 +57,45 @@ model organization_applications {
 }
 
 model organizations {
-  id                           String                         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  name                         String                         @db.VarChar(255)
-  created_at                   DateTime?                      @default(now()) @db.Timestamptz(6)
-  updated_at                   DateTime?                      @default(now()) @db.Timestamptz(6)
-  is_valid                     Boolean                        @default(true)
-  is_complete                  Boolean?                       @default(false)
-  gstnumber                    String?                        @db.VarChar(100)
-  address                      String?                        @db.VarChar(100)
-  shortorgname                 String?                        @db.VarChar(20)
-  company_name                 String?                        @db.VarChar(255)
-  invoice_prefix               String?                        @db.VarChar(10)
-  invoice_sequence_start       Int                            @default(1)
-  billing_address              String?                        @db.VarChar(255)
-  billing_phone                String?                        @db.VarChar(20)
-  billing_email                String?                        @db.VarChar(100)
-  state                        String?                        @db.VarChar(50)
-  appointments                 appointments[]
-  bills                        bills[]
-  categories                   categories[]
-  client_organization_category client_organization_category[]
-  doctors                      doctors[]
-  employees                    employees[]
-  notifications_organizations  notifications_organizations[]
-  organization_billing_details organization_billing_details?
-  reminder                     reminder[]
-  resources                    resources[]
-  roles                        roles[]
-  services                     services[]
-  user_organizations           user_organizations[]
-  inventory_items              inventory_items[]
-  inventory_batches            inventory_batches[]
-  inventory_transactions       inventory_transactions[]
-  feedback                     feedback[]
+  id                               String                          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name                             String                          @db.VarChar(255)
+  created_at                       DateTime?                       @default(now()) @db.Timestamptz(6)
+  updated_at                       DateTime?                       @default(now()) @db.Timestamptz(6)
+  is_valid                         Boolean                         @default(true)
+  is_complete                      Boolean?                        @default(false)
+  gstnumber                        String?                         @db.VarChar(100)
+  address                          String?                         @db.VarChar(100)
+  shortorgname                     String?                         @db.VarChar(20)
+  company_name                     String?                         @db.VarChar(255)
+  invoice_prefix                   String?                         @db.VarChar(10)
+  invoice_sequence_start           Int                             @default(1)
+  billing_address                  String?                         @db.VarChar(255)
+  billing_phone                    String?                         @db.VarChar(20)
+  billing_email                    String?                         @db.VarChar(100)
+  state                            String?                         @db.VarChar(50)
+  appointments                     appointments[]
+  bills                            bills[]
+  categories                       categories[]
+  client_organization_category     client_organization_category[]
+  doctors                          doctors[]
+  employees                        employees[]
+  notifications_organizations      notifications_organizations[]
+  organization_billing_details     organization_billing_details?
+  reminder                         reminder[]
+  resources                        resources[]
+  roles                            roles[]
+  services                         services[]
+  user_organizations               user_organizations[]
+  inventory_items                  inventory_items[]
+  inventory_batches                inventory_batches[]
+  inventory_transactions           inventory_transactions[]
+  feedback                         feedback[]
+   whatsapp_enabled                 Boolean                           @default(false)
+  whatsapp_credits                 Float                             @default(0.0)
+  whatsapp_logs                    whatsapp_logs[]
+  whatsapp_templates_organizations whatsapp_templates_organizations[]
+  organization_voice_configuration OrganizationVoiceConfiguration?
+  voice_call_logs                  VoiceCallLog[]
 }
 
 model roles {
@@ -283,34 +291,34 @@ model services {
 }
 
 model appointments {
-  id               String             @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  portal_id        String             @unique @db.VarChar(25)
-  organization_id  String             @db.Uuid
-  client_id        String?            @db.Uuid
-  created_by_user_id String?          @db.Uuid
-  service_id       String?            @db.Uuid
-  resource_id      String             @db.Uuid
-  doctor_id        String?            @db.Uuid
-  date_time        DateTime           @db.Timestamp(6)
-  start_time       DateTime           @db.Timestamp(6)
-  end_time         DateTime           @db.Timestamp(6)
-  remarks          String?
-  status           appointment_status @default(BOOKED)
-  is_valid         Boolean?           @default(true)
-  is_cancelled     Boolean?           @default(false)
-  cancel_remarks   String?
-  cancel_date_time DateTime?          @db.Timestamp(6)
-  created_at       DateTime?          @default(now()) @db.Timestamp(6)
-  employee_id      String?            @db.Uuid
-  clinical_notes   String?
-  clinical_notes_added_by String?     @db.Uuid
-  clients          clients?           @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  doctors          doctors?           @relation(fields: [doctor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  organizations    organizations      @relation(fields: [organization_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  resources        resources          @relation(fields: [resource_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  services         services?          @relation(fields: [service_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  employees        employees?         @relation(fields: [employee_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_appointments_employees")
-
+  id                      String             @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  portal_id               String             @unique @db.VarChar(25)
+  organization_id         String             @db.Uuid
+  client_id               String?            @db.Uuid
+  created_by_user_id      String?            @db.Uuid
+  service_id              String?            @db.Uuid
+  resource_id             String             @db.Uuid
+  doctor_id               String?            @db.Uuid
+  date_time               DateTime           @db.Timestamp(6)
+  start_time              DateTime           @db.Timestamp(6)
+  end_time                DateTime           @db.Timestamp(6)
+  remarks                 String?
+  status                  appointment_status @default(BOOKED)
+  is_valid                Boolean?           @default(true)
+  is_cancelled            Boolean?           @default(false)
+  cancel_remarks          String?
+  cancel_date_time        DateTime?          @db.Timestamp(6)
+  created_at              DateTime?          @default(now()) @db.Timestamp(6)
+  employee_id             String?            @db.Uuid
+  clinical_notes          String?
+  clinical_notes_added_by String?            @db.Uuid
+  clients                 clients?           @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  doctors                 doctors?           @relation(fields: [doctor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  organizations           organizations      @relation(fields: [organization_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  resources               resources          @relation(fields: [resource_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  services                services?          @relation(fields: [service_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  employees               employees?         @relation(fields: [employee_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_appointments_employees")
+    whatsapp_logs    whatsapp_logs[]
   @@index([client_id], map: "idx_appointments_client_id")
   @@index([date_time], map: "idx_appointments_date_time")
   @@index([doctor_id], map: "idx_appointments_doctor_id")
@@ -409,74 +417,76 @@ model client_organization_category {
 }
 
 model bills {
-  id                          String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  invoice_number              String            @db.VarChar(50)
-  organization_id             String            @db.Uuid
-  client_id                   String            @db.Uuid
-  discount_percentage         Decimal           @default(0) @db.Decimal(5, 2)
-  is_valid                    Boolean           @default(true)
-  created_at                  DateTime          @default(now()) @db.Timestamptz(6)
-  updated_at                  DateTime          @default(now()) @db.Timestamptz(6)
-  bill_type                   bill_type_enum
-  bill_from_text              String?
-  bill_to_text                String?
-  discount_amount             Decimal           @default(0) @db.Decimal(12, 2)
-  due_date                    DateTime?         @db.Date
-  grand_total                 Decimal           @db.Decimal(12, 2)
-  grand_total_before_rounding Decimal           @db.Decimal(12, 2)
-  invoice_date                DateTime          @db.Date
-  notes                       String?
-  round_off_amount            Decimal           @default(0) @db.Decimal(12, 2)
-  round_off_enabled           Boolean           @default(true)
-  shipping_charges            Decimal           @default(0) @db.Decimal(12, 2)
-  status                      String            @default("draft") @db.VarChar(20)
-  billStatus                  bill_status_enum  @default(ACTIVE)
-  sub_total                   Decimal           @db.Decimal(12, 2)
-  taxable_after_discount      Decimal           @db.Decimal(12, 2)
-  terms                       String?
-  total_cgst                  Decimal           @default(0) @db.Decimal(12, 2)
-  total_igst                  Decimal           @default(0) @db.Decimal(12, 2)
-  total_sgst                  Decimal           @default(0) @db.Decimal(12, 2)
-  total_tax                   Decimal           @default(0) @db.Decimal(12, 2)
-  invoice_reference           String?           @db.Uuid
-  brand_name_text             String?           @db.VarChar
-  bank_charges                String?           @db.VarChar
-  bill_line_items             bill_line_items[]
+  id                               String                   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  invoice_number                   String                   @db.VarChar(50)
+  organization_id                  String                   @db.Uuid
+  client_id                        String                   @db.Uuid
+  discount_percentage              Decimal                  @default(0) @db.Decimal(5, 2)
+  is_valid                         Boolean                  @default(true)
+  created_at                       DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at                       DateTime                 @default(now()) @db.Timestamptz(6)
+  bill_type                        bill_type_enum
+  bill_from_text                   String?
+  bill_to_text                     String?
+  discount_amount                  Decimal                  @default(0) @db.Decimal(12, 2)
+  due_date                         DateTime?                @db.Date
+  grand_total                      Decimal                  @db.Decimal(12, 2)
+  grand_total_before_rounding      Decimal                  @db.Decimal(12, 2)
+  invoice_date                     DateTime                 @db.Date
+  notes                            String?
+  round_off_amount                 Decimal                  @default(0) @db.Decimal(12, 2)
+  round_off_enabled                Boolean                  @default(true)
+  shipping_charges                 Decimal                  @default(0) @db.Decimal(12, 2)
+  status                           String                   @default("draft") @db.VarChar(20)
+  billStatus                       bill_status_enum         @default(ACTIVE)
+  sub_total                        Decimal                  @db.Decimal(12, 2)
+  taxable_after_discount           Decimal                  @db.Decimal(12, 2)
+  terms                            String?
+  total_cgst                       Decimal                  @default(0) @db.Decimal(12, 2)
+  total_igst                       Decimal                  @default(0) @db.Decimal(12, 2)
+  total_sgst                       Decimal                  @default(0) @db.Decimal(12, 2)
+  total_tax                        Decimal                  @default(0) @db.Decimal(12, 2)
+  invoice_reference                String?                  @db.Uuid
+  brand_name_text                  String?                  @db.VarChar
+  bank_charges                     String?                  @db.VarChar
+  bill_line_items                  bill_line_items[]
   inventory_transactions_from_bill inventory_transactions[] @relation("inventory_tx_source_bill")
-  clients                     clients           @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  organizations               organizations     @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  clients                          clients                  @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  organizations                    organizations            @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([organization_id, invoice_number])
 }
 
 model bill_line_items {
-  id                     String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  bill_id                String         @db.Uuid
-  /** Order of this row on the bill (0-based). Mixed SERVICE + INVENTORY lines share one ordered list. */
-  line_position          Int            @default(0)
-  line_kind              bill_line_kind @default(SERVICE)
-  service_id             String?        @db.Uuid
-  inventory_item_id      String?        @db.Uuid
-  inventory_batch_id     String?        @db.Uuid
-  inventory_batch_number String?        @db.VarChar(100)
-  quantity               Decimal        @default(1) @db.Decimal(10, 3)
-  created_at             DateTime       @default(now()) @db.Timestamptz(6)
-  updated_at             DateTime       @default(now()) @db.Timestamptz(6)
-  amount                 Decimal        @db.Decimal(12, 2)
-  cgst_amount            Decimal        @default(0) @db.Decimal(12, 2)
+  id                     String             @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  bill_id                String             @db.Uuid
+  /**
+   * Order of this row on the bill (0-based). Mixed SERVICE + INVENTORY lines share one ordered list.
+   */
+  line_position          Int                @default(0)
+  line_kind              bill_line_kind     @default(SERVICE)
+  service_id             String?            @db.Uuid
+  inventory_item_id      String?            @db.Uuid
+  inventory_batch_id     String?            @db.Uuid
+  inventory_batch_number String?            @db.VarChar(100)
+  quantity               Decimal            @default(1) @db.Decimal(10, 3)
+  created_at             DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime           @default(now()) @db.Timestamptz(6)
+  amount                 Decimal            @db.Decimal(12, 2)
+  cgst_amount            Decimal            @default(0) @db.Decimal(12, 2)
   description            String
-  final_amount           Decimal        @db.Decimal(12, 2)
-  gst_percentage         Decimal        @default(0) @db.Decimal(5, 2)
-  igst_amount            Decimal        @default(0) @db.Decimal(12, 2)
-  line_discount_share    Decimal        @default(0) @db.Decimal(12, 2)
-  rate                   Decimal        @db.Decimal(12, 2)
+  final_amount           Decimal            @db.Decimal(12, 2)
+  gst_percentage         Decimal            @default(0) @db.Decimal(5, 2)
+  igst_amount            Decimal            @default(0) @db.Decimal(12, 2)
+  line_discount_share    Decimal            @default(0) @db.Decimal(12, 2)
+  rate                   Decimal            @db.Decimal(12, 2)
   service_name           String
-  sgst_amount            Decimal        @default(0) @db.Decimal(12, 2)
-  taxable_amount         Decimal        @db.Decimal(12, 2)
-  total_tax_amount       Decimal        @default(0) @db.Decimal(12, 2)
-  bills                  bills          @relation(fields: [bill_id], references: [id], onDelete: Cascade)
-  services               services?      @relation(fields: [service_id], references: [id], onDelete: NoAction)
-  inventory_items        inventory_items? @relation(fields: [inventory_item_id], references: [id], onDelete: NoAction)
+  sgst_amount            Decimal            @default(0) @db.Decimal(12, 2)
+  taxable_amount         Decimal            @db.Decimal(12, 2)
+  total_tax_amount       Decimal            @default(0) @db.Decimal(12, 2)
+  bills                  bills              @relation(fields: [bill_id], references: [id], onDelete: Cascade)
+  services               services?          @relation(fields: [service_id], references: [id], onDelete: NoAction)
+  inventory_items        inventory_items?   @relation(fields: [inventory_item_id], references: [id], onDelete: NoAction)
   inventory_batches      inventory_batches? @relation(fields: [inventory_batch_id], references: [id], onDelete: NoAction)
 
   @@index([bill_id, line_position], map: "idx_bill_line_items_bill_position")
@@ -517,23 +527,23 @@ model receipts {
 }
 
 model feedback {
-  id               String             @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  organization_id  String             @db.Uuid
-  client_id        String             @db.Uuid
-  doctor_id        String             @db.Uuid
-  employee_id      String?            @db.Uuid
-  experience       String             @db.VarChar(50)
-  comments         String?
-  has_complaint    Boolean            @default(false)
-  complaint_text   String?
-  created_at       DateTime           @default(now()) @db.Timestamptz(6)
-  updated_at       DateTime           @default(now()) @db.Timestamptz(6)
-  is_valid         Boolean            @default(true)
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organization_id String   @db.Uuid
+  client_id       String   @db.Uuid
+  doctor_id       String   @db.Uuid
+  employee_id     String?  @db.Uuid
+  experience      String   @db.VarChar(50)
+  comments        String?
+  has_complaint   Boolean  @default(false)
+  complaint_text  String?
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime @default(now()) @db.Timestamptz(6)
+  is_valid        Boolean  @default(true)
 
-  organizations    organizations      @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  clients          clients            @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  doctors          doctors            @relation(fields: [doctor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  employees        employees?         @relation(fields: [employee_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  organizations     organizations       @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  clients           clients             @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  doctors           doctors             @relation(fields: [doctor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  employees         employees?          @relation(fields: [employee_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   feedback_services feedback_services[]
 
   @@index([organization_id], map: "idx_feedback_organization_id")
@@ -546,13 +556,13 @@ model feedback {
 }
 
 model feedback_services {
-  id          String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  feedback_id String    @db.Uuid
-  service_id  String    @db.Uuid
-  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  feedback_id String   @db.Uuid
+  service_id  String   @db.Uuid
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
 
-  feedback    feedback  @relation(fields: [feedback_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  services    services  @relation(fields: [service_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  feedback feedback @relation(fields: [feedback_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  services services @relation(fields: [service_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@unique([feedback_id, service_id], map: "uq_feedback_service")
   @@index([service_id], map: "idx_feedback_services_service_id")
@@ -646,44 +656,44 @@ enum bill_module_status {
 }
 
 model inventory_items {
-  id                 String                   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  organization_id    String                   @db.Uuid
-  name               String                   @db.VarChar(255)
-  sku                String?                  @db.VarChar(100)
-  description        String?
-  inventory_type     inventory_type           @default(RETAIL)
-  unit               String                   @default("unit") @db.VarChar(50)
-  reorder_level      Decimal?                 @db.Decimal(14, 4)
-  is_valid           Boolean                  @default(true)
-  created_at         DateTime?                @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime?                @default(now()) @db.Timestamptz(6)
-  organizations      organizations            @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  inventory_batches  inventory_batches[]
+  id                     String                   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organization_id        String                   @db.Uuid
+  name                   String                   @db.VarChar(255)
+  sku                    String?                  @db.VarChar(100)
+  description            String?
+  inventory_type         inventory_type           @default(RETAIL)
+  unit                   String                   @default("unit") @db.VarChar(50)
+  reorder_level          Decimal?                 @db.Decimal(14, 4)
+  is_valid               Boolean                  @default(true)
+  created_at             DateTime?                @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime?                @default(now()) @db.Timestamptz(6)
+  organizations          organizations            @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  inventory_batches      inventory_batches[]
   inventory_transactions inventory_transactions[]
-  bill_line_items    bill_line_items[]
+  bill_line_items        bill_line_items[]
 
+  @@unique([organization_id, sku], map: "uq_inventory_org_sku")
   @@index([organization_id], map: "idx_inventory_items_organization_id")
   @@index([organization_id, is_valid], map: "idx_inventory_items_org_valid")
-  @@unique([organization_id, sku], map: "uq_inventory_org_sku")
 }
 
 model inventory_batches {
-  id                 String                   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  organization_id    String                   @db.Uuid
-  inventory_item_id  String                   @db.Uuid
-  batch_number       String                   @db.VarChar(100)
-  expiry_date        DateTime?                @db.Date
-  quantity_on_hand   Decimal                  @default(0) @db.Decimal(14, 4)
-  cost_price         Decimal?                 @db.Decimal(12, 2)
-  selling_price      Decimal?                 @db.Decimal(12, 2)
-  mrp                Decimal?                 @db.Decimal(12, 2)
-  is_valid           Boolean                  @default(true)
-  created_at         DateTime?                @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime?                @default(now()) @db.Timestamptz(6)
-  organizations      organizations            @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  inventory_items      inventory_items        @relation(fields: [inventory_item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id                     String                   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organization_id        String                   @db.Uuid
+  inventory_item_id      String                   @db.Uuid
+  batch_number           String                   @db.VarChar(100)
+  expiry_date            DateTime?                @db.Date
+  quantity_on_hand       Decimal                  @default(0) @db.Decimal(14, 4)
+  cost_price             Decimal?                 @db.Decimal(12, 2)
+  selling_price          Decimal?                 @db.Decimal(12, 2)
+  mrp                    Decimal?                 @db.Decimal(12, 2)
+  is_valid               Boolean                  @default(true)
+  created_at             DateTime?                @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime?                @default(now()) @db.Timestamptz(6)
+  organizations          organizations            @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  inventory_items        inventory_items          @relation(fields: [inventory_item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   inventory_transactions inventory_transactions[]
-  bill_line_items      bill_line_items[]
+  bill_line_items        bill_line_items[]
 
   @@unique([inventory_item_id, batch_number], map: "uq_inv_item_batch_number")
   @@index([organization_id], map: "idx_inv_batches_org")
@@ -705,7 +715,7 @@ model inventory_transactions {
   source_bill_id     String?                    @db.Uuid
   inventory_items    inventory_items            @relation(fields: [inventory_item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   inventory_batches  inventory_batches?         @relation(fields: [inventory_batch_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  organizations      organizations            @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  organizations      organizations              @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   source_bill        bills?                     @relation("inventory_tx_source_bill", fields: [source_bill_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   @@index([organization_id], map: "idx_inventory_tx_organization_id")
@@ -724,4 +734,161 @@ enum inventory_transaction_type {
 enum inventory_type {
   RETAIL
   CONSUMABLE
+}
+
+// ==========================================================================
+// Voice Calls Module (Twilio-backed). Kept intentionally provider-agnostic at
+// the service layer so additional providers/IVR/inbound flows can be added
+// later without changing this schema.
+// ==========================================================================
+
+enum VoiceNumberStatus {
+  ENABLED
+  DISABLED
+}
+
+enum VoiceCallDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum VoiceCallStatus {
+  QUEUED
+  RINGING
+  IN_PROGRESS
+  COMPLETED
+  BUSY
+  FAILED
+  NO_ANSWER
+  CANCELED
+}
+
+model OrganizationVoiceConfiguration {
+  id              String @id @default(uuid()) @db.Uuid
+  organization_id String @unique @db.Uuid
+
+  account_name String
+  // Encrypted at rest (AES-256-GCM, see src/util/encryption.js) - the
+  // repository layer encrypts on write and decrypts on read, so this column
+  // never holds plaintext credentials.
+  twilio_sid   String
+  twilio_token String
+
+  created_by String?
+  updated_by String?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  organization organizations             @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  phoneNumbers OrganizationVoiceNumber[]
+
+  @@map("organization_voice_configuration")
+}
+
+model OrganizationVoiceNumber {
+  id String @id @default(uuid()) @db.Uuid
+
+  configuration_id String @db.Uuid
+
+  phone_number  String
+  friendly_name String?
+
+  status VoiceNumberStatus @default(ENABLED)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  configuration OrganizationVoiceConfiguration @relation(fields: [configuration_id], references: [id], onDelete: Cascade)
+
+  @@index([configuration_id])
+  @@map("organization_voice_numbers")
+}
+
+model VoiceCallLog {
+  id String @id @default(uuid()) @db.Uuid
+
+  organization_id String @db.Uuid
+
+  client_id String? @db.Uuid
+
+  twilio_call_sid String @unique
+
+  from_number String
+  to_number   String
+
+  direction VoiceCallDirection
+  status    VoiceCallStatus
+
+  duration_seconds Int?
+
+  recording_sid String?
+  recording_url String?
+
+  started_at  DateTime?
+  answered_at DateTime?
+  ended_at    DateTime?
+
+  created_by String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  organization organizations @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  client       clients?      @relation(fields: [client_id], references: [id], onDelete: SetNull)
+
+  @@index([organization_id])
+  @@index([client_id])
+  @@index([status])
+  @@index([from_number])
+  @@index([started_at])
+  @@map("voice_call_logs")
+}
+
+
+
+model whatsapp_templates {
+  id                               String                             @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name                             String                             @unique @db.VarChar(100) // e.g. "APPOINTMENT_BOOKED"
+  twilio_template_name             String                             @db.VarChar(100)
+  body                             String                             @db.VarChar(1000)
+  credit_cost                      Float                              @default(1.0)
+  is_valid                         Boolean                            @default(true)
+  created_at                       DateTime?                          @default(now()) @db.Timestamptz(6)
+  updated_at                       DateTime?                          @default(now()) @db.Timestamptz(6)
+  whatsapp_templates_organizations whatsapp_templates_organizations[]
+}
+
+model whatsapp_templates_organizations {
+  id                  String             @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  template_id         String             @db.Uuid
+  organization_id     String             @db.Uuid
+  is_active           Boolean            @default(false)
+  created_at          DateTime?          @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime?          @default(now()) @db.Timestamptz(6)
+  whatsapp_templates  whatsapp_templates @relation(fields: [template_id], references: [id], onDelete: Cascade)
+  organizations       organizations      @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  @@unique([template_id, organization_id], map: "uq_whatsapp_template_org")
+}
+
+model whatsapp_logs {
+  id                String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organization_id   String          @db.Uuid
+  client_id         String?         @db.Uuid
+  appointment_id    String?         @db.Uuid
+  phone_number      String          @db.VarChar(30)
+  template_name     String          @db.VarChar(100)
+  message_body      String          @db.VarChar(1000)
+  twilio_sid        String?         @db.VarChar(100)
+  status            String          @default("PENDING") // PENDING, SUCCESS, FAILED
+  error_message     String?         @db.VarChar(500)
+  credits_deducted  Float           @default(0.0)
+  created_at        DateTime?       @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime?       @default(now()) @db.Timestamptz(6)
+  organizations     organizations   @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  clients           clients?        @relation(fields: [client_id], references: [id], onDelete: SetNull)
+  appointments      appointments?   @relation(fields: [appointment_id], references: [id], onDelete: SetNull)
+}
+model system_settings {
+  key               String          @id @db.VarChar(100)
+  value             String          @db.VarChar(500)
 }
