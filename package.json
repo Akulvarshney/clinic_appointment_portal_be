@@ -11,6 +11,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@bull-board/api": "^8.3.0",
+    "@bull-board/express": "^8.3.0",
     "@fullcalendar/interaction": "^6.1.18",
     "@fullcalendar/react": "^6.1.18",
     "@fullcalendar/resource-timegrid": "^6.1.18",

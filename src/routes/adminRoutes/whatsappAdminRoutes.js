@@ -6,6 +6,10 @@ import {
   getGlobalCreditRate,
   updateGlobalCreditRate,
 } from "../../controller/whatsappController.js";
+import {
+  getAllCustomTemplatesSA,
+  approveCustomTemplate,
+} from "../../controller/whatsappCampaignController.js";
 
 const router = Router();
 
@@ -14,5 +18,8 @@ router.post("/toggle", toggleWhatsappForOrg);
 router.post("/add-credits", addCreditsToOrg);
 router.get("/credit-rate", getGlobalCreditRate);
 router.post("/credit-rate", updateGlobalCreditRate);
+
+router.get("/custom-templates", getAllCustomTemplatesSA);
+router.put("/custom-templates/:templateId/approve", approveCustomTemplate);
 
 export default router;

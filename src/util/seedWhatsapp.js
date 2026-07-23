@@ -3,31 +3,40 @@ import prisma from "../prisma.js";
 const DEFAULT_TEMPLATES = [
   {
     name: "APPOINTMENT_BOOKED",
-    twilio_template_name: "appointment_booked_v1",
-    body: "Hello {{1}}, your appointment for {{2}} with {{3}} is scheduled on {{4}} at {{5}}. Thank you!",
+    twilio_template_id: "HX8883a43058090ae4fd815682cefb7814",
+    body:
+      `Hi {{1}}! 👋
+    Your appointment has been confirmed.
+    👨‍⚕️ Doctor: {{2}}
+    📅 Date: {{3}}
+    🕒 Time: {{4}}
+    Please arrive 10 minutes before your scheduled appointment.
+    If you have any questions or need to reschedule, please contact us at {{6}}.
+    Thank you for choosing {{5}}. 
+    We look forward to seeing you!`,
     credit_cost: 1.0,
   },
   {
     name: "APPOINTMENT_CANCELLED",
-    twilio_template_name: "appointment_cancelled_v1",
+    twilio_template_id: "appointment_cancelled_v1",
     body: "Hello {{1}}, your appointment for {{2}} on {{3}} has been cancelled. Remarks: {{4}}.",
     credit_cost: 1.0,
   },
   {
     name: "APPOINTMENT_RESCHEDULED",
-    twilio_template_name: "appointment_rescheduled_v1",
+    twilio_template_id: "appointment_rescheduled_v1",
     body: "Hello {{1}}, your appointment for {{2}} has been rescheduled to {{3}} at {{4}}.",
     credit_cost: 1.0,
   },
   {
     name: "FOLLOW_UP_REMINDER",
-    twilio_template_name: "follow_up_reminder_v1",
+    twilio_template_id: "follow_up_reminder_v1",
     body: "Hello {{1}}, this is a follow-up reminder for your visit on {{2}}.",
     credit_cost: 1.5,
   },
   {
     name: "BIRTHDAY_WISHES",
-    twilio_template_name: "birthday_wishes_v1",
+    twilio_template_id: "birthday_wishes_v1",
     body: "Dear {{1}}, we wish you a very Happy Birthday! Have a great day ahead. - GloryWellNic Team",
     credit_cost: 0.5,
   },
@@ -56,13 +65,13 @@ export const seedWhatsappTemplates = async () => {
       await prisma.whatsapp_templates.upsert({
         where: { name: t.name },
         update: {
-          twilio_template_name: t.twilio_template_name,
+          twilio_template_id: t.twilio_template_id,
           body: t.body,
           credit_cost: t.credit_cost,
         },
         create: {
           name: t.name,
-          twilio_template_name: t.twilio_template_name,
+          twilio_template_id: t.twilio_template_id,
           body: t.body,
           credit_cost: t.credit_cost,
         },

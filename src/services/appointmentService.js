@@ -106,27 +106,29 @@ export const bookAppointmentService = async (
         services: true,
         doctors: true,
         employees: true,
+        organizations: true,
       },
     });
 
     if (details) {
       const clientName = details.clients ? `${details.clients.first_name || ""} ${details.clients.last_name || ""}`.trim() : "Client";
-      const serviceName = details.services?.name || "Service";
       const staffName = details.doctors
         ? `Dr. ${details.doctors.first_name || ""}`.trim()
         : details.employees
-        ? `${details.employees.first_name || ""}`.trim()
-        : "Staff";
+          ? `${details.employees.first_name || ""}`.trim()
+          : "Staff";
 
       const apptDate = formatCalendarDate(details.date_time);
       const apptTime = DateTime.fromJSDate(new Date(details.start_time), { zone: APP_TIMEZONE }).toFormat("hh:mm a");
 
+      const orgName = details.organizations?.name || "Our Clinic";
+      const orgContact = details.organizations?.billing_phone || "our contact number";
+
       await queueWhatsappNotification({
         organizationId: orgId,
         clientId,
-        appointmentId: appt.id,
         templateName: "APPOINTMENT_BOOKED",
-        params: [clientName, serviceName, staffName, apptDate, apptTime],
+        params: [clientName, staffName, apptDate, apptTime, orgName, orgContact],
       });
     }
   } catch (err) {
@@ -287,9 +289,9 @@ export const changeAppointmentStatusService = async (id, status) => {
           client_id: appointment.client_id,
           reminderdate: addCalendarDays(new Date(), intervalDays),
           remindercomments: `FOLLOW UP for ${appointment.services.name} for Client ${appointment.clients?.first_name} (${clientPortalId}) for Appt ID ${appointment.portal_id} on Appt Date ${formatCalendarDate(
-                appointment.date_time
-              )}`
-           ,
+            appointment.date_time
+          )}`
+          ,
         },
       });
     }
@@ -297,7 +299,7 @@ export const changeAppointmentStatusService = async (id, status) => {
     if (
       appointment.client_id &&
       appointment.organization_id &&
-      appointment.services?.ptc_required &&  appointment.status !== "VISITED"
+      appointment.services?.ptc_required && appointment.status !== "VISITED"
     ) {
       const clientName = formatClientName(appointment.clients);
       await Prisma.reminder.create({

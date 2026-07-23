@@ -269,6 +269,9 @@ export const tabFeatureConfig = [
       },
       {
         feature_unique_name: "WHATSAPP_TEMPLATE_LISTING", feature_name: "Template Listing"
+      },
+      {
+        feature_unique_name: "WHATSAPP_BULK_MESSAGING", feature_name: "Bulk Messaging"
       }
     ]
   }

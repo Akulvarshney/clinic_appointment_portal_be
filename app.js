@@ -5,8 +5,20 @@ import cors from "cors";
 //import authRoutes from "./routes/authRoutes.js";
 import v1routes from "./src/routes/index.js";
 import requestLogger from "./src/middleware/requestLog.js";
+import { createBullBoard } from '@bull-board/api';
+import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
+import { ExpressAdapter } from '@bull-board/express';
+import { whatsappQueue } from './src/services/whatsappQueueService.js';
 
 const app = express();
+
+const serverAdapter = new ExpressAdapter();
+serverAdapter.setBasePath('/admin/queues');
+
+createBullBoard({
+  queues: [new BullMQAdapter(whatsappQueue)],
+  serverAdapter: serverAdapter,
+});
 
 console.log("Hello World");
 
@@ -28,6 +40,7 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use('/admin/queues', serverAdapter.getRouter());
 app.use("/api/v1/", v1routes);
 
 // app.use("/api/v1/user", authMiddleware, userRoutes);

@@ -256,7 +256,7 @@ export const getOrgWhatsappTemplates = async (req, res) => {
     const formatted = templates.map((t) => ({
       id: t.id,
       name: t.name,
-      twilioTemplateName: t.twilio_template_name,
+      twilioTemplateId: t.twilio_template_id,
       body: t.body,
       creditCost: t.credit_cost,
       isActive: toggleMap.has(t.id) ? toggleMap.get(t.id) : false,
