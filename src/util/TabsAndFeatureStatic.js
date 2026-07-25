@@ -270,4 +270,16 @@ export const tabFeatureConfig = [
       },
     ],
   },
+  {
+    tab_number: 14,
+    tab_unique_name: "SUBSCRIPTION",
+    tab_name: "Subscription",
+    tab_path: "/subscription",
+    features: [
+      { feature_unique_name: "VIEW_SUBS_INFO", feature_name: "View Subscription Info" },  
+      { feature_unique_name: "VIEW_SUBS_HISTORY", feature_name: "View Subscription History" },
+      { feature_unique_name: "SUBSCRIBE_TO_PLAN", feature_name: "Subscribe to Plan" },
+
+    ],
+  },
 ];

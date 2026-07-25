@@ -73,6 +73,7 @@ model organizations {
   billing_phone                    String?                         @db.VarChar(20)
   billing_email                    String?                         @db.VarChar(100)
   state                            String?                         @db.VarChar(50)
+  subscriptionEndDate              DateTime?                       @db.Timestamptz(6)
   appointments                     appointments[]
   bills                            bills[]
   categories                       categories[]

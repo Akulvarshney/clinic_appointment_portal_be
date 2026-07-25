@@ -5,6 +5,26 @@ import dotenv from "dotenv";
 import { saveToken } from "./tokenService.js";
 dotenv.config();
 
+/**
+ * Org is expired unless subscriptionEndDate's calendar day is strictly
+ * after today's calendar day. Missing end date → expired.
+ */
+const getIsOrgExpired = (subscriptionEndDate) => {
+  if (!subscriptionEndDate) return true;
+
+  const end = new Date(subscriptionEndDate);
+  const today = new Date();
+
+  const endDay = Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate());
+  const todayDay = Date.UTC(
+    today.getUTCFullYear(),
+    today.getUTCMonth(),
+    today.getUTCDate()
+  );
+
+  return !(endDay > todayDay);
+};
+
 export const loginUser = async (loginId, password) => {
   const user = await prisma.users.findFirst({
     where: {
@@ -122,6 +142,9 @@ export const loginUser = async (loginId, password) => {
       is_valid: org.is_valid,
       is_complete: org.is_complete,
       state: org.state,
+      //subscriptionEndDate: org.subscriptionEndDate || null,
+      //isOrgExpired: getIsOrgExpired(org.subscriptionEndDate),
+      isOrgExpired: false,
       roles,
     };
   });
