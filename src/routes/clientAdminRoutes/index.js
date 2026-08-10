@@ -9,6 +9,7 @@ import receiptRoutes from "./receiptManagementRoutes.js";
 import inventoryRoutes from "./inventoryManagementRoutes.js";
 import feedbackRoutes from "./feedbackRoutes.js";
 import whatsappRoutes from "./whatsappRoutes.js";
+import surveyAdminRoutes from "./surveyAdminRoutes.js";
 
 const router = Router();
 
@@ -22,5 +23,6 @@ router.use("/receipts", receiptRoutes);
 router.use("/inventoryManagement", inventoryRoutes);
 router.use("/feedback", feedbackRoutes);
 router.use("/whatsapp", whatsappRoutes);
+router.use("/survey", surveyAdminRoutes);
 
 export default router;

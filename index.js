@@ -39,9 +39,8 @@ pool.on("error", (err) => {
     await prisma.$connect();
     console.log("✅ Prisma connected");
 
-    await seedWhatsappTemplates();
-
-    // await ensureSuperAdminExists();
+    // await seedWhatsappTemplates();
+    await ensureSuperAdminExists();
     await syncTabsAndFeatures();
 
     app.listen(PORT, () => {

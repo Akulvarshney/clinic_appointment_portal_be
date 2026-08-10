@@ -3,41 +3,91 @@ import prisma from "../prisma.js";
 const DEFAULT_TEMPLATES = [
   {
     name: "APPOINTMENT_BOOKED",
-    twilio_template_id: "HX8883a43058090ae4fd815682cefb7814",
+    twilio_template_id: "HX3d55cfb8d8b039fcc630a3645fd346c9",
+    body:
+      `Hello {{1}},
+
+    Your appointment for {{2}} has been confirmed.
+
+    Your appointment is scheduled on {{3}} at {{4}}.
+
+    Please arrive at least 10 minutes before your appointment.
+
+    If you need assistance regarding your appointment, please contact us at {{5}}.
+
+    Thank you,
+    Team {{6}}.
+    We look forward to your visit.`,
+    credit_cost: 1.0,
+  },
+  {
+    name: "appointment_rescheduled",
+    twilio_template_id: "HX0a2972e10874c5e7436f48313d265f7a",
     body:
       `Hi {{1}}! 👋
-    Your appointment has been confirmed.
-    👨‍⚕️ Doctor: {{2}}
-    📅 Date: {{3}}
-    🕒 Time: {{4}}
-    Please arrive 10 minutes before your scheduled appointment.
-    If you have any questions or need to reschedule, please contact us at {{6}}.
-    Thank you for choosing {{5}}. 
+
+    Your appointment with {{2}} has been rescheduled.
+
+    📅 New Date: {{3}}
+    🕒 New Time: {{4}}
+
+    If this new schedule doesn't work for you or you need any assistance, please contact us at {{5}}.
+
+    Thank you for your understanding and choosing {{6}}
     We look forward to seeing you!`,
     credit_cost: 1.0,
   },
   {
-    name: "APPOINTMENT_CANCELLED",
-    twilio_template_id: "appointment_cancelled_v1",
-    body: "Hello {{1}}, your appointment for {{2}} on {{3}} has been cancelled. Remarks: {{4}}.",
+    name: "appointment_cancelled",
+    twilio_template_id: "HXa9acfe34f6363c013b0d1cefa4b774db",
+    body:
+      `Hi {{1}}! 👋
+
+    Your appointment with {{2}} scheduled for:
+    📅 Date: {{3}}
+    🕒 Time: {{4}}
+    has been cancelled.
+
+    To book a new appointment or if you need any assistance, please contact us at {{5}}.
+
+    Thank you for your understanding and choosing {{6}}.
+    We look forward to serving you!`,
     credit_cost: 1.0,
   },
   {
-    name: "APPOINTMENT_RESCHEDULED",
-    twilio_template_id: "appointment_rescheduled_v1",
-    body: "Hello {{1}}, your appointment for {{2}} has been rescheduled to {{3}} at {{4}}.",
-    credit_cost: 1.0,
-  },
-  {
-    name: "FOLLOW_UP_REMINDER",
-    twilio_template_id: "follow_up_reminder_v1",
-    body: "Hello {{1}}, this is a follow-up reminder for your visit on {{2}}.",
+    name: "client_registration_1",
+    twilio_template_id: "HXbc24c239830654f6b0466fdea4e00570",
+    body:
+      `Hello {{1}},
+
+    This is to confirm that your registration has been completed successfully.
+
+    Your profile is now active and ready to be used for future appointments and services.
+
+    Thank you,
+    Team {{2}}.
+
+    We are here to assist you whenever you need us.`,
     credit_cost: 1.5,
   },
   {
-    name: "BIRTHDAY_WISHES",
-    twilio_template_id: "birthday_wishes_v1",
-    body: "Dear {{1}}, we wish you a very Happy Birthday! Have a great day ahead. - GloryWellNic Team",
+    name: "feedback_1",
+    twilio_template_id: "HX7956f68cf70cb2182db0c2b7af6ce030",
+    body:
+      `Hello {{1}},
+
+    Thank you for your recent visit.
+
+    We value your feedback and would appreciate hearing about your experience.
+
+    Please share your feedback using the link below:
+
+    {{3}}
+
+    Thank you,
+    Team {{2}}.
+
+    Your feedback helps us improve our services.`,
     credit_cost: 0.5,
   },
 ];

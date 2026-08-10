@@ -206,20 +206,31 @@ export const cancelAppointmentsService = async (id, cancelRemarks) => {
     include: {
       clients: true,
       services: true,
+      doctors: true,
+      employees: true,
+      organizations: true,
     },
   });
 
   try {
     const clientName = updatedAppt.clients ? `${updatedAppt.clients.first_name || ""} ${updatedAppt.clients.last_name || ""}`.trim() : "Client";
-    const serviceName = updatedAppt.services?.name || "Service";
-    const apptDate = formatCalendarDate(updatedAppt.date_time);
+    const staffName = updatedAppt.doctors
+      ? `Dr. ${updatedAppt.doctors.first_name || ""}`.trim()
+      : updatedAppt.employees
+        ? `${updatedAppt.employees.first_name || ""}`.trim()
+        : "Staff";
+
+    const apptDate = formatCalendarDate(updatedAppt.start_time);
+    const apptTime = DateTime.fromJSDate(new Date(updatedAppt.start_time), { zone: APP_TIMEZONE }).toFormat("hh:mm a");
+
+    const orgName = updatedAppt.organizations?.name || "Our Clinic";
+    const orgContact = updatedAppt.organizations?.billing_phone || "our contact number";
 
     await queueWhatsappNotification({
       organizationId: updatedAppt.organization_id,
       clientId: updatedAppt.client_id,
-      appointmentId: updatedAppt.id,
-      templateName: "APPOINTMENT_CANCELLED",
-      params: [clientName, serviceName, apptDate, cancelRemarks || "No reason specified"],
+      templateName: "appointment_cancelled",
+      params: [clientName, staffName, apptDate, apptTime, orgContact, orgName],
     });
   } catch (err) {
     console.error("Failed to queue WhatsApp cancellation notification:", err);
@@ -251,6 +262,7 @@ export const changeAppointmentStatusService = async (id, status) => {
           ptc_required: true,
         },
       },
+      organizations: true,
     },
   });
 
@@ -276,6 +288,35 @@ export const changeAppointmentStatusService = async (id, status) => {
   );
 
   if (shouldCreateReminder) {
+    try {
+      const existingFeedback = await Prisma.feedback.findFirst({
+        where: { appointment_id: appointment.id }
+      });
+
+      if (!existingFeedback) {
+        const feedbackRecord = await Prisma.feedback.create({
+          data: {
+            organization_id: appointment.organization_id,
+            appointment_id: appointment.id,
+            status: "Pending"
+          }
+        });
+
+        const baseUrl = process.env.FRONTEND_URL || "https://theglorywellnic.web.app";
+        const feedbackUrl = `${baseUrl.replace(/\/$/, '')}/feedback/${feedbackRecord.id}`;
+        const clientName = formatClientName(appointment.clients);
+        const orgName = appointment.organizations?.name || "Our Clinic";
+
+        await queueWhatsappNotification({
+          organizationId: appointment.organization_id,
+          clientId: appointment.client_id,
+          templateName: "feedback_1",
+          params: [clientName, orgName, feedbackUrl],
+        });
+      }
+    } catch (err) {
+      console.error("Failed to create feedback or queue WhatsApp notification:", err);
+    }
     const intervalDays = parseInt(appointment.services?.session_interval, 10);
     if (
       appointment.client_id &&
@@ -371,21 +412,31 @@ export const reScheduleAppointmentService = async (
     include: {
       clients: true,
       services: true,
+      doctors: true,
+      employees: true,
+      organizations: true,
     },
   });
 
   try {
     const clientName = response.clients ? `${response.clients.first_name || ""} ${response.clients.last_name || ""}`.trim() : "Client";
-    const serviceName = response.services?.name || "Service";
-    const apptDate = formatCalendarDate(response.date_time);
+    const staffName = response.doctors
+      ? `Dr. ${response.doctors.first_name || ""}`.trim()
+      : response.employees
+        ? `${response.employees.first_name || ""}`.trim()
+        : "Staff";
+
+    const apptDate = formatCalendarDate(response.start_time);
     const newTime = DateTime.fromJSDate(new Date(response.start_time), { zone: APP_TIMEZONE }).toFormat("hh:mm a");
+
+    const orgName = response.organizations?.name || "Our Clinic";
+    const orgContact = response.organizations?.billing_phone || "our contact number";
 
     await queueWhatsappNotification({
       organizationId: response.organization_id,
       clientId: response.client_id,
-      appointmentId: response.id,
-      templateName: "APPOINTMENT_RESCHEDULED",
-      params: [clientName, serviceName, apptDate, newTime],
+      templateName: "appointment_rescheduled",
+      params: [clientName, staffName, apptDate, newTime, orgContact, orgName],
     });
   } catch (err) {
     console.error("Failed to queue WhatsApp reschedule notification:", err);

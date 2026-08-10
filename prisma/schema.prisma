@@ -31,7 +31,7 @@ model clients {
   appointments                 appointments[]
   bills                        bills[]
   client_organization_category client_organization_category[]
-  feedback                     feedback[]
+
   users                        users                          @relation(fields: [userid], references: [id], onDelete: NoAction, onUpdate: NoAction)
   receipts                     receipts[]
   reminder                     reminder[]
@@ -89,6 +89,7 @@ model organizations {
   inventory_batches            inventory_batches[]
   inventory_transactions       inventory_transactions[]
   feedback                     feedback[]
+  feedback_forms               feedback_forms[]
   whatsapp_enabled                 Boolean                           @default(false)
   whatsapp_credits                 Float                             @default(0.0)
   whatsapp_logs                    whatsapp_logs[]
@@ -96,6 +97,51 @@ model organizations {
   custom_whatsapp_templates        custom_whatsapp_templates[]
   whatsapp_campaigns               whatsapp_campaigns[]
   whatsapp_credit_transactions     whatsapp_credit_transactions[]
+}
+
+model feedback_forms {
+  id                 String               @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organization_id    String               @db.Uuid
+  title              String               @db.VarChar(255)
+  description        String?
+  is_active          Boolean              @default(true)
+  created_at         DateTime?            @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime?            @default(now()) @db.Timestamptz(6)
+
+  organizations      organizations        @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  feedback_questions feedback_questions[]
+  feedback           feedback[]
+}
+
+model feedback_questions {
+  id                 String               @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  form_id            String               @db.Uuid
+  type               String               @db.VarChar(50)
+  label              String
+  placeholder        String?
+  is_required        Boolean              @default(false)
+  options            String?
+  validation_rules   String?
+  display_order      Int                  @default(0)
+  is_active          Boolean              @default(true)
+  created_at         DateTime?            @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime?            @default(now()) @db.Timestamptz(6)
+
+  feedback_forms     feedback_forms       @relation(fields: [form_id], references: [id], onDelete: Cascade)
+  feedback_answers   feedback_answers[]
+}
+
+
+
+model feedback_answers {
+  id                 String               @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  feedback_id        String               @db.Uuid
+  question_id        String               @db.Uuid
+  answer_text        String?
+  answer_json        String?
+
+  feedback           feedback             @relation(fields: [feedback_id], references: [id], onDelete: Cascade)
+  feedback_questions feedback_questions   @relation(fields: [question_id], references: [id], onDelete: Cascade)
 }
 
 model roles {
@@ -220,7 +266,7 @@ model doctors {
   created_at       DateTime?      @default(now()) @db.Timestamptz(6)
   updated_at       DateTime?      @default(now()) @db.Timestamptz(6)
   appointments     appointments[]
-  feedback         feedback[]
+
   organizations    organizations  @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   users            users          @relation(fields: [userid], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
@@ -244,7 +290,7 @@ model employees {
   created_at       DateTime?      @default(now()) @db.Timestamptz(6)
   updated_at       DateTime?      @default(now()) @db.Timestamptz(6)
   appointments     appointments[]
-  feedback         feedback[]
+
   organizations    organizations  @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   users            users          @relation(fields: [userid], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
@@ -286,7 +332,7 @@ model services {
   appointments            appointments[]
   bill_line_items         bill_line_items[]
   receipt_bill_line_items receipt_bill_line_items[]
-  feedback_services       feedback_services[]
+
   organizations           organizations             @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_organization")
 }
 
@@ -318,6 +364,7 @@ model appointments {
   resources        resources          @relation(fields: [resource_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   services         services?          @relation(fields: [service_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   employees        employees?         @relation(fields: [employee_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_appointments_employees")
+  feedback         feedback?
 
   @@index([client_id], map: "idx_appointments_client_id")
   @@index([date_time], map: "idx_appointments_date_time")
@@ -527,10 +574,10 @@ model receipts {
 model feedback {
   id               String             @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   organization_id  String             @db.Uuid
-  client_id        String             @db.Uuid
-  doctor_id        String             @db.Uuid
-  employee_id      String?            @db.Uuid
-  experience       String             @db.VarChar(50)
+  appointment_id   String             @unique @db.Uuid
+  form_id          String?            @db.Uuid
+  status           String             @default("Pending") @db.VarChar(50)
+  experience       String?            @db.VarChar(50)
   comments         String?
   has_complaint    Boolean            @default(false)
   complaint_text   String?
@@ -539,32 +586,16 @@ model feedback {
   is_valid         Boolean            @default(true)
 
   organizations    organizations      @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  clients          clients            @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  doctors          doctors            @relation(fields: [doctor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  employees        employees?         @relation(fields: [employee_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  feedback_services feedback_services[]
+  appointments     appointments       @relation(fields: [appointment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  feedback_forms   feedback_forms?    @relation(fields: [form_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  feedback_answers feedback_answers[]
 
   @@index([organization_id], map: "idx_feedback_organization_id")
-  @@index([client_id], map: "idx_feedback_client_id")
-  @@index([doctor_id], map: "idx_feedback_doctor_id")
-  @@index([employee_id], map: "idx_feedback_employee_id")
+  @@index([appointment_id], map: "idx_feedback_appointment_id")
+  @@index([form_id], map: "idx_feedback_form_id")
   @@index([has_complaint], map: "idx_feedback_has_complaint")
   @@index([experience], map: "idx_feedback_experience")
   @@index([created_at], map: "idx_feedback_created_at")
-}
-
-model feedback_services {
-  id          String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  feedback_id String    @db.Uuid
-  service_id  String    @db.Uuid
-  created_at  DateTime  @default(now()) @db.Timestamptz(6)
-
-  feedback    feedback  @relation(fields: [feedback_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  services    services  @relation(fields: [service_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@unique([feedback_id, service_id], map: "uq_feedback_service")
-  @@index([service_id], map: "idx_feedback_services_service_id")
-  @@index([feedback_id], map: "idx_feedback_services_feedback_id")
 }
 
 model organization_billing_details {
