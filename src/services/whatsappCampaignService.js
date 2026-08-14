@@ -7,7 +7,7 @@ const redisConnectionQueue = createRedisConnection("campaign queue");
 const redisConnectionWorker = createRedisConnection("campaign worker");
 
 export const campaignQueue = new Queue("campaignQueue", {
-  connection: redisConnection,
+  connection: redisConnectionQueue,
 });
 
 // Worker to process campaigns at scheduled time
