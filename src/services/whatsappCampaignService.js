@@ -1,13 +1,10 @@
 import { Queue, Worker } from "bullmq";
-import IORedis from "ioredis";
 import prisma from "../prisma.js";
+import { createRedisConnection } from "../util/redisConnection.js";
 import { whatsappQueue } from "./whatsappQueueService.js";
 
-const redisConnection = new IORedis({
-  host: process.env.REDIS_HOST || "127.0.0.1",
-  port: parseInt(process.env.REDIS_PORT || "6379", 10),
-  maxRetriesPerRequest: null,
-});
+const redisConnectionQueue = createRedisConnection("campaign queue");
+const redisConnectionWorker = createRedisConnection("campaign worker");
 
 export const campaignQueue = new Queue("campaignQueue", {
   connection: redisConnection,
@@ -95,7 +92,7 @@ const campaignWorker = new Worker(
     }
   },
   {
-    connection: redisConnection,
+    connection: redisConnectionWorker,
     concurrency: 2,
   }
 );

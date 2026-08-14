@@ -1,21 +1,11 @@
 import { Queue, Worker } from "bullmq";
-import IORedis from "ioredis";
 import prisma from "../prisma.js";
+import { createRedisConnection } from "../util/redisConnection.js";
 import { processAndSendWhatsappMessage } from "./whatsappSenderService.js";
 
 // Initialize Redis connections for BullMQ (Must be separate for Queue and Worker)
-const connectionOptions = {
-  host: process.env.REDIS_HOST || "127.0.0.1",
-  port: parseInt(process.env.REDIS_PORT || "6379", 10),
-  maxRetriesPerRequest: null, // Required by BullMQ
-};
-
-const redisConnectionQueue = new IORedis(connectionOptions);
-const redisConnectionWorker = new IORedis(connectionOptions);
-
-redisConnectionQueue.on("connect", () => {
-  console.log("✅ Redis connected successfully for WhatsApp Queue");
-});
+const redisConnectionQueue = createRedisConnection("whatsapp queue");
+const redisConnectionWorker = createRedisConnection("whatsapp worker");
 
 // 1. Initialize BullMQ Queue
 export const whatsappQueue = new Queue("whatsappQueue", {
