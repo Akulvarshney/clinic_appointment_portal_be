@@ -80,6 +80,7 @@ export const tabFeatureConfig = [
       { feature_unique_name: "EDIT_CLIENT", feature_name: "Edit Client" },
       { feature_unique_name: "DELETE_CLIENT", feature_name: "Delete Client" },
       { feature_unique_name: "VIEW_MOBILE", feature_name: "View Mobile" },
+      { feature_unique_name: "EXPORT_CLIENTS", feature_name: "Export Clients" },
     ],
   },
   {

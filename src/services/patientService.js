@@ -201,18 +201,8 @@ export const clientListingConroller = async (req, res) => {
   }
 };
 
-export const clientListingService = async ({
-  search,
-  page,
-  limit,
-  orgId,
-  categoryId,
-  sort,
-  sortDir,
-}) => {
+function buildClientListingWhere({ search, orgId, categoryId }) {
   const searchTerm = typeof search === "string" ? search.trim() : "";
-  const pageNum = Number(page) || 1;
-  const limitNum = Number(limit) || 10;
 
   // Build client filter for search
   const clientFilter = searchTerm
@@ -228,27 +218,45 @@ export const clientListingService = async ({
   // Build category filter
   const categoryFilter = categoryId ? { category_id: categoryId } : {};
 
-  // Determine ordering
-  let orderByClause;
+  return {
+    organization_id: orgId,
+    ...categoryFilter,
+    clients: clientFilter,
+  };
+}
+
+function buildClientListingOrderBy({ sort, sortDir }) {
   if (sort === "portalid") {
-    orderByClause = { portal_id: sortDir || "asc" };
-  } else if (sort === "name") {
-    orderByClause = [
+    return { portal_id: sortDir || "asc" };
+  }
+  if (sort === "name") {
+    return [
       { clients: { first_name: sortDir || "asc" } },
       { clients: { last_name: sortDir || "asc" } },
     ];
-  } else {
-    orderByClause = { clients: { first_name: "asc" } };
   }
+  return { clients: { first_name: "asc" } };
+}
+
+export const clientListingService = async ({
+  search,
+  page,
+  limit,
+  orgId,
+  categoryId,
+  sort,
+  sortDir,
+}) => {
+  const pageNum = Number(page) || 1;
+  const limitNum = Number(limit) || 10;
+
+  const whereCondition = buildClientListingWhere({ search, orgId, categoryId });
+  const orderByClause = buildClientListingOrderBy({ sort, sortDir });
 
   // Query client_organization_category table to handle portalid sorting and filters
   const categoriesWithClients =
     await Prisma.client_organization_category.findMany({
-      where: {
-        organization_id: orgId,
-        ...categoryFilter,
-        clients: clientFilter,
-      },
+      where: whereCondition,
       orderBy: orderByClause,
       include: {
         clients: true,
@@ -267,11 +275,7 @@ export const clientListingService = async ({
 
   // Get total count for pagination
   const totalCount = await Prisma.client_organization_category.count({
-    where: {
-      organization_id: orgId,
-      ...categoryFilter,
-      clients: clientFilter,
-    },
+    where: whereCondition,
   });
 
   return {
@@ -280,6 +284,63 @@ export const clientListingService = async ({
     currentPage: pageNum,
     totalPages: Math.ceil(totalCount / limitNum),
   };
+};
+
+function formatClientDate(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  return `${day}/${month}/${date.getFullYear()}`;
+}
+
+export const getClientsDownloadData = async ({
+  search,
+  orgId,
+  categoryId,
+  sort,
+  sortDir,
+  includeMobile = false,
+}) => {
+  const whereCondition = buildClientListingWhere({ search, orgId, categoryId });
+  const orderByClause = buildClientListingOrderBy({ sort, sortDir });
+
+  // No skip/take here so the export always covers every filtered client
+  const categoriesWithClients =
+    await Prisma.client_organization_category.findMany({
+      where: whereCondition,
+      orderBy: orderByClause,
+      include: {
+        clients: true,
+        categories: true,
+      },
+    });
+
+  const rows = categoriesWithClients.map((entry, index) => {
+    const client = entry.clients || {};
+
+    return {
+      serial_number: index + 1,
+      portal_id: entry.portal_id || client.portalid || "",
+      name: `${client.first_name || ""} ${client.last_name || ""}`.trim(),
+      ...(includeMobile ? { phone: client.phone || "" } : {}),
+      email: client.email || "",
+      gender: client.gender || "",
+      date_of_birth: formatClientDate(client.date_of_birth),
+      category: entry.categories?.category_name || "",
+      booked_status: entry.booked_status || "",
+      occupation: client.occupation || "",
+      address: client.address || "",
+      city: client.city || "",
+      state: client.state || "",
+      pin_code: client.pinCode || "",
+      registered_on: formatClientDate(client.created_at),
+    };
+  });
+
+  return { totalRecords: rows.length, rows };
 };
 
 export const clientSearchService = async (search, limit, orgId) => {

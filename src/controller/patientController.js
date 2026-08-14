@@ -4,8 +4,35 @@ import {
   clientListingService,
   clientSearchService,
   clientSearchByIdService,
+  getClientsDownloadData,
 } from "../services/patientService.js";
 import { sendResponse } from "../util/response.js";
+import { sendExcelDownload } from "../util/excelExport.js";
+
+function getClientDownloadTimestamp(date = new Date()) {
+  const months = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
+
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = months[date.getMonth()];
+  const year = String(date.getFullYear()).slice(-2);
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+
+  return `${day}-${month}-${year}_${hours}:${minutes}`;
+}
 //SYNC
 export const registerClientController = async (req, res) => {
   try {
@@ -78,6 +105,64 @@ export const clientListingConroller = async (req, res) => {
   } catch (error) {
     console.error("Error in client listing:", error);
     res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
+export const downloadClientsController = async (req, res) => {
+  try {
+    const {
+      search = "",
+      orgId,
+      categoryId,
+      sort,
+      sortDir,
+      includeMobile,
+    } = req.query;
+
+    if (!orgId) {
+      return res
+        .status(400)
+        .json({ message: "Organization ID (orgId) is required" });
+    }
+
+    const showMobile = includeMobile === "true" || includeMobile === true;
+
+    const result = await getClientsDownloadData({
+      search,
+      orgId,
+      categoryId,
+      sort,
+      sortDir,
+      includeMobile: showMobile,
+    });
+
+    sendExcelDownload(res, {
+      filename: `clients_${getClientDownloadTimestamp()}`,
+      sheetName: "Clients",
+      columns: [
+        { header: "S.No", key: "serial_number", width: 10 },
+        { header: "Client ID", key: "portal_id", width: 18 },
+        { header: "Name", key: "name", width: 26 },
+        ...(showMobile ? [{ header: "Mobile", key: "phone", width: 16 }] : []),
+        { header: "Email", key: "email", width: 28 },
+        { header: "Gender", key: "gender", width: 12 },
+        { header: "Date of Birth", key: "date_of_birth", width: 16 },
+        { header: "Category", key: "category", width: 20 },
+        { header: "Booked Status", key: "booked_status", width: 16 },
+        { header: "Occupation", key: "occupation", width: 20 },
+        { header: "Address", key: "address", width: 36 },
+        { header: "City", key: "city", width: 16 },
+        { header: "State", key: "state", width: 18 },
+        { header: "Pin Code", key: "pin_code", width: 12 },
+        { header: "Registered On", key: "registered_on", width: 16 },
+      ],
+      rows: result.rows,
+    });
+  } catch (error) {
+    console.error("downloadClientsController:", error);
+    return res.status(error.statusCode || 500).json({
+      message: error.message || "Internal Server Error",
+    });
   }
 };
 

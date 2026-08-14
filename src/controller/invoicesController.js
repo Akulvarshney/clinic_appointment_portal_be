@@ -4,6 +4,7 @@ import {
   billLineItemsOrderBy,
   deductInventoryForInvoiceBill,
   mapLineItemToBillRow,
+  restoreInventoryForCancelledBill,
 } from "../services/billInventoryService.js";
 
 const getCurrentFinancialYear = () => {
@@ -902,32 +903,49 @@ export const deleteBill = async (req, res) => {
       return res.status(400).json({ error: "id and orgId are required" });
     }
 
-    const bill = await prisma.bills.findFirst({
-      where: {
-        id,
-        organization_id: orgId,
-        is_valid: true,
-      },
-    });
+    const result = await prisma.$transaction(async (tx) => {
+      const bill = await tx.bills.findFirst({
+        where: {
+          id,
+          organization_id: orgId,
+          is_valid: true,
+        },
+      });
 
-    if (!bill) {
-      return res.status(404).json({ error: "Bill not found" });
-    }
+      if (!bill) {
+        const err = new Error("Bill not found");
+        err.statusCode = 404;
+        throw err;
+      }
 
-    if (bill.billStatus === "DELETED") {
-      return res.status(400).json({ error: "Bill is already deleted" });
-    }
+      if (bill.billStatus === "DELETED") {
+        const err = new Error("Bill is already deleted");
+        err.statusCode = 400;
+        throw err;
+      }
 
-    await prisma.bills.update({
-      where: { id },
-      data: { billStatus: "DELETED" },
+      await tx.bills.update({
+        where: { id },
+        data: { billStatus: "DELETED" },
+      });
+
+      return await restoreInventoryForCancelledBill(tx, {
+        organizationId: orgId,
+        billId: bill.id,
+        invoiceNumber: bill.invoice_number,
+        billType: bill.bill_type,
+      });
     });
 
     return res.status(200).json({
       success: true,
       message: "Bill deleted successfully",
+      restoredBatches: result.restoredBatches,
     });
   } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ error: error.message });
+    }
     console.error("Error deleting bill:", error);
     return res.status(500).json({
       success: false,

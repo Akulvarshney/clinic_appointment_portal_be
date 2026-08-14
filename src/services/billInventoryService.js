@@ -228,6 +228,99 @@ export async function deductInventoryForInvoiceBill(
   }
 }
 
+/**
+ * Reverses the stock a bill took out, using the STOCK_OUT rows it stamped with
+ * `source_bill_id` as the source of truth so exactly what was deducted is returned.
+ * Batches deactivated since the sale are still credited, to keep the ledger balanced.
+ *
+ * @param {import("@prisma/client").Prisma.TransactionClient} tx
+ */
+export async function restoreInventoryForCancelledBill(
+  tx,
+  { organizationId, billId, invoiceNumber, billType },
+) {
+  if (billType !== "INVOICE") {
+    return { restoredBatches: 0 };
+  }
+
+  const alreadyRestored = await tx.inventory_transactions.findFirst({
+    where: {
+      organization_id: organizationId,
+      source_bill_id: billId,
+      transaction_type: "STOCK_IN",
+    },
+    select: { id: true },
+  });
+
+  if (alreadyRestored) {
+    return { restoredBatches: 0 };
+  }
+
+  const stockOutRows = await tx.inventory_transactions.findMany({
+    where: {
+      organization_id: organizationId,
+      source_bill_id: billId,
+      transaction_type: "STOCK_OUT",
+    },
+  });
+
+  // A product can appear on several lines of one bill, so net the moves per batch
+  const quantityByBatch = new Map();
+  for (const row of stockOutRows) {
+    if (!row.inventory_batch_id) continue;
+
+    const qty = Math.abs(Number(row.quantity_delta));
+    if (!qty) continue;
+
+    const existing = quantityByBatch.get(row.inventory_batch_id);
+    if (existing) {
+      existing.quantity += qty;
+    } else {
+      quantityByBatch.set(row.inventory_batch_id, {
+        inventoryItemId: row.inventory_item_id,
+        quantity: qty,
+      });
+    }
+  }
+
+  let restoredBatches = 0;
+
+  for (const [batchId, { inventoryItemId, quantity }] of quantityByBatch) {
+    const batchRow = await tx.inventory_batches.findFirst({
+      where: { id: batchId, organization_id: organizationId },
+    });
+
+    if (!batchRow) continue;
+
+    const before = Number(batchRow.quantity_on_hand);
+    const after = before + quantity;
+
+    await tx.inventory_batches.update({
+      where: { id: batchRow.id },
+      data: { quantity_on_hand: after, updated_at: new Date() },
+    });
+
+    await tx.inventory_transactions.create({
+      data: {
+        organization_id: organizationId,
+        inventory_item_id: inventoryItemId,
+        inventory_batch_id: batchRow.id,
+        transaction_type: "STOCK_IN",
+        quantity_delta: quantity,
+        quantity_before: before,
+        quantity_after: after,
+        batch_number: batchRow.batch_number,
+        remarks: `Cancelled Invoice ${invoiceNumber}`,
+        source_bill_id: billId,
+      },
+    });
+
+    restoredBatches += 1;
+  }
+
+  return { restoredBatches };
+}
+
 export const billLineItemsOrderBy = [
   { line_position: "asc" },
   { created_at: "asc" },
