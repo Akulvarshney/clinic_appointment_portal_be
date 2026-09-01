@@ -39,7 +39,7 @@ pool.on("error", (err) => {
     await prisma.$connect();
     console.log("✅ Prisma connected");
 
-    // await seedWhatsappTemplates();
+     //await seedWhatsappTemplates();
     await ensureSuperAdminExists();
     await syncTabsAndFeatures();
 

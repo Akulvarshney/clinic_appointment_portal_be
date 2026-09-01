@@ -106,7 +106,9 @@ export const bookAppointmentService = async (
         services: true,
         doctors: true,
         employees: true,
-        organizations: true,
+        organizations: {
+          include: { organization_billing_details: true },
+        },
       },
     });
 
@@ -123,12 +125,16 @@ export const bookAppointmentService = async (
 
       const orgName = details.organizations?.name || "Our Clinic";
       const orgContact = details.organizations?.billing_phone || "our contact number";
+      const orgBrandName =
+        details.organizations?.organization_billing_details
+          ?.billing_brand_name || orgName;
+      const serviceName = details.services?.name || "Service";
 
       await queueWhatsappNotification({
         organizationId: orgId,
         clientId,
         templateName: "APPOINTMENT_BOOKED",
-        params: [clientName, staffName, apptDate, apptTime, orgName, orgContact],
+        params: [clientName, serviceName, apptDate, apptTime,  orgContact , orgBrandName]
       });
     }
   } catch (err) {
@@ -208,7 +214,9 @@ export const cancelAppointmentsService = async (id, cancelRemarks) => {
       services: true,
       doctors: true,
       employees: true,
-      organizations: true,
+      organizations: {
+        include: { organization_billing_details: true },
+      },
     },
   });
 
@@ -225,12 +233,17 @@ export const cancelAppointmentsService = async (id, cancelRemarks) => {
 
     const orgName = updatedAppt.organizations?.name || "Our Clinic";
     const orgContact = updatedAppt.organizations?.billing_phone || "our contact number";
+    const orgBrandName =
+      updatedAppt.organizations?.organization_billing_details
+        ?.billing_brand_name || orgName;
+        const serviceName = updatedAppt.services?.name || "Service";
+
 
     await queueWhatsappNotification({
       organizationId: updatedAppt.organization_id,
       clientId: updatedAppt.client_id,
       templateName: "appointment_cancelled",
-      params: [clientName, staffName, apptDate, apptTime, orgContact, orgName],
+      params: [clientName, serviceName, apptDate, apptTime, orgBrandName,orgContact],
     });
   } catch (err) {
     console.error("Failed to queue WhatsApp cancellation notification:", err);
@@ -277,6 +290,15 @@ export const changeAppointmentStatusService = async (id, status) => {
     where: {
       id,
     },
+    include: {
+      clients: true,
+      services: true,
+      doctors: true,
+      employees: true,
+      organizations: {
+        include: { organization_billing_details: true },
+      },
+    },
   });
 
   const shouldCreateReminder =
@@ -306,12 +328,16 @@ export const changeAppointmentStatusService = async (id, status) => {
         const feedbackUrl = `${baseUrl.replace(/\/$/, '')}/feedback/${feedbackRecord.id}`;
         const clientName = formatClientName(appointment.clients);
         const orgName = appointment.organizations?.name || "Our Clinic";
+        const orgBrandName =
+        updatedAppointment.organizations?.organization_billing_details
+            ?.billing_brand_name || orgName;
+        const serviceName = appointment.services?.name || "Service";
 
         await queueWhatsappNotification({
           organizationId: appointment.organization_id,
           clientId: appointment.client_id,
           templateName: "feedback_1",
-          params: [clientName, orgName, feedbackUrl],
+          params: [clientName, orgBrandName, feedbackUrl],
         });
       }
     } catch (err) {
