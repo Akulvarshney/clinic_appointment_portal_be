@@ -760,10 +760,8 @@ export const saveAsInvoices = async (req, res) => {
           discount_percentage: quotation.discount_percentage,
           is_valid: true,
           bill_type: "INVOICE",
-          // GSTIN append is commented out just for now during invoice creation from quotation to remove gst number from the invoice.
-          // bill_from_text:
-          //   quotation.bill_from_text + "\n" + orgBillingDetails.gst_number,
-          bill_from_text: quotation.bill_from_text,
+          bill_from_text:
+            quotation.bill_from_text + "\n" + orgBillingDetails.gst_number,
           bill_to_text: quotation.bill_to_text,
           discount_amount: quotation.discount_amount,
           due_date: quotation.due_date,
