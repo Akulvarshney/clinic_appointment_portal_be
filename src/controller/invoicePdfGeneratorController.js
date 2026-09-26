@@ -103,16 +103,21 @@ export const generateInvoicePdf = async (req, res) => {
 
     if (!bill) return res.status(404).json({ error: "Bill not found" });
 
+    const leftMargin = 40;
+    const rightMargin = 40;
+    const topMargin = 40;
+    const bottomMargin = 50;
+
     const doc = new PDFDocument({
       size: "A4",
-      margins: { top: 60, bottom: 60, left: 50, right: 50 },
+      margins: { top: topMargin, bottom: bottomMargin, left: leftMargin, right: rightMargin },
       bufferPages: true,
     });
 
     // Register font that supports ₹
     if (fs.existsSync(fontPath)) {
       doc.registerFont("NotoSans", fontPath);
-      const font = "NotoSans";
+      doc.registerFont("NotoSans-Bold", fontPath);
     } else {
       console.warn(
         "NotoSans font not found! ₹ symbol may not render correctly."
@@ -126,102 +131,174 @@ export const generateInvoicePdf = async (req, res) => {
     );
     doc.pipe(res);
 
-    // Use the custom font throughout
     const baseFont = fs.existsSync(fontPath) ? "NotoSans" : "Helvetica";
+    const boldFont = fs.existsSync(fontPath) ? "NotoSans-Bold" : "Helvetica-Bold";
 
-    const leftMargin = 50;
-    const usableWidth = doc.page.width - leftMargin - 50;
+    const pageWidth = doc.page.width;
+    const pageHeight = doc.page.height;
+    const usableWidth = pageWidth - leftMargin - rightMargin;
 
-    // === Company Name (Top) ===
+    // Draw Top Accent Stripe (Dual Line)
+    const drawPageDecorations = () => {
+      doc.save();
+      doc.rect(0, 0, pageWidth, 5).fill("#0F172A");
+      doc.rect(0, 5, pageWidth, 2).fill("#2563EB");
+      doc.restore();
+    };
+
+    drawPageDecorations();
+
     const org = bill.organizations;
-
     const typeOFBill = bill.bill_type === "INVOICE" ? "INVOICE" : "PERFORMA INVOICE";
+    const brandTitle = bill?.brand_name_text ? bill?.brand_name_text : org?.company_name || org?.name || "";
 
+    // === HEADER SECTION ===
+    let headerY = 24;
+
+    // Brand Name (Left)
+    doc
+      .font(boldFont)
+      .fontSize(19)
+      .fillColor("#0F172A")
+      .text(brandTitle, leftMargin, headerY, { width: 310, align: "left" });
+
+    // Type of Bill Badge (Top Right)
+    const badgeWidth = 145;
+    const badgeHeight = 24;
+    const badgeX = pageWidth - rightMargin - badgeWidth;
+    const badgeY = headerY;
+
+    const isInvoice = typeOFBill === "INVOICE";
+    const badgeBg = isInvoice ? "#EEF2FF" : "#FFFBEB";
+    const badgeBorder = isInvoice ? "#C7D2FE" : "#FDE68A";
+    const badgeTextColor = isInvoice ? "#3730A3" : "#92400E";
+
+    doc.save();
+    doc
+      .roundedRect(badgeX, badgeY, badgeWidth, badgeHeight, 5)
+      .fillColor(badgeBg)
+      .strokeColor(badgeBorder)
+      .lineWidth(1)
+      .fillAndStroke();
+
+    doc
+      .font(boldFont)
+      .fontSize(9)
+      .fillColor(badgeTextColor)
+      .text(typeOFBill, badgeX, badgeY + 6, {
+        width: badgeWidth,
+        align: "center",
+      });
+    doc.restore();
+
+    // Invoice Meta (Right side, under badge)
+    let metaY = badgeY + badgeHeight + 8;
+    doc
+      .font(boldFont)
+      .fontSize(9.5)
+      .fillColor("#0F172A")
+      .text(`Invoice: #${bill.invoice_number}`, leftMargin + 300, metaY, {
+        width: 215,
+        align: "right",
+      });
+    metaY += 14;
     doc
       .font(baseFont)
-      .fontSize(24)
-      .text(
-        bill?.brand_name_text
-          ? bill?.brand_name_text
-          : org?.company_name || org?.name,
-        { align: "center" }
-      );
-    doc.moveDown(0.2);
+      .fontSize(8.5)
+      .fillColor("#64748B")
+      .text(`Date: ${formatDate(bill.invoice_date)}`, leftMargin + 300, metaY, {
+        width: 215,
+        align: "right",
+      });
 
-    // if (org) {
-    //   const orgInfo = [
-    //     org.billing_address,
-    //     org.billing_phone ? `Phone: ${org.billing_phone}` : "",
-    //     org.billing_email ? `Email: ${org.billing_email}` : "",
-    //   ]
-    //     .filter(Boolean)
-    //     .join("\n");
-    //   if (orgInfo) {
-    //     doc.fontSize(10).text(orgInfo, { align: "center" });
-    //     doc.moveDown(1);
-    //   }
-    // }
+    // === BILL FROM / BILL TO CARDS WITH ACCENT BAR ===
+    let cardsY = Math.max(doc.y + 16, 85);
 
-    // === Invoice Title ===
-    doc
-      .fontSize(14)
-      .font(baseFont + "-Bold") // Note: You may need NotoSans-Bold.ttf for bold
-      .text(typeOFBill, { align: "center" });
-    doc.moveDown(1);
+    const cardGap = 15;
+    const cardWidth = (usableWidth - cardGap) / 2;
 
-    // For bold text without separate bold font, use .font(baseFont) and simulate with weight if needed
-    // But for simplicity, we'll use regular font everywhere unless you add bold variant
+    const billFromText = bill.bill_from_text || "N/A";
+    const billToText = bill.bill_to_text || "N/A";
 
-    doc.fontSize(10).font(baseFont);
-    doc.text(`Invoice: #${bill.invoice_number}`, { align: "right" });
-    doc.text(`Date: ${formatDate(bill.invoice_date)}`, { align: "right" });
-    doc.moveDown(2);
-
-    // === Bill From / To ===
-    const colWidth = (usableWidth - 20) / 2;
-    const tableTop = doc.y;
-    doc.fontSize(11);
-    doc.text("Bill From:", leftMargin, tableTop);
-    doc.text(bill.bill_from_text || "N/A", leftMargin, tableTop + 15, {
-      width: colWidth,
+    doc.font(baseFont).fontSize(8.5);
+    const heightFrom = doc.heightOfString(billFromText, {
+      width: cardWidth - 26,
+      lineGap: 2.5,
     });
-    doc.text("Bill To:", leftMargin + colWidth + 20, tableTop);
-    doc.text(
-      bill.bill_to_text || "N/A",
-      leftMargin + colWidth + 20,
-      tableTop + 15,
-      { width: colWidth }
-    );
-    doc.moveDown(3);
+    const heightTo = doc.heightOfString(billToText, {
+      width: cardWidth - 26,
+      lineGap: 2.5,
+    });
+    const cardContentHeight = Math.max(heightFrom, heightTo);
+    const cardHeight = Math.max(75, cardContentHeight + 42);
 
-    // === Dynamic Columns ===
+    const drawInfoCard = (x, y, title, content, accentColor) => {
+      doc.save();
+      doc
+        .roundedRect(x, y, cardWidth, cardHeight, 6)
+        .fillColor("#F8FAFC")
+        .strokeColor("#E2E8F0")
+        .lineWidth(1)
+        .fillAndStroke();
+
+      doc
+        .roundedRect(x, y, 4, cardHeight, 2)
+        .fillColor(accentColor);
+
+      doc
+        .font(boldFont)
+        .fontSize(8)
+        .fillColor("#475569")
+        .text(title.toUpperCase(), x + 14, y + 10, { width: cardWidth - 26 });
+
+      doc
+        .moveTo(x + 14, y + 23)
+        .lineTo(x + cardWidth - 14, y + 23)
+        .strokeColor("#CBD5E1")
+        .lineWidth(0.5)
+        .stroke();
+
+      doc
+        .font(baseFont)
+        .fontSize(8.5)
+        .fillColor("#1E293B")
+        .text(content, x + 14, y + 28, {
+          width: cardWidth - 26,
+          lineGap: 2.5,
+        });
+
+      doc.restore();
+    };
+
+    drawInfoCard(leftMargin, cardsY, "Bill From:", billFromText, "#2563EB");
+    drawInfoCard(leftMargin + cardWidth + cardGap, cardsY, "Bill To:", billToText, "#0D9488");
+
+    let currentY = cardsY + cardHeight + 22;
+
+    // === DYNAMIC COLUMNS SETUP ===
     const isIntraState =
       parseFloat(bill.total_cgst) > 0 || parseFloat(bill.total_sgst) > 0;
 
     const serviceCols = [
-      { label: "Service", width: 0.22, key: "service_name" },
-      { label: "Qty", width: 0.05, key: "quantity", align: "right" },
-      { label: "Rate", width: 0.08, key: "rate", align: "right" },
-      { label: "GST", width: 0.07, key: "gst_percentage", align: "right" },
-      {
-        label: "Disc",
-        width: 0.09,
-        key: "line_discount_share",
-        align: "right",
-      },
-      { label: "Taxable", width: 0.09, key: "taxable_amount", align: "right" },
+      { label: "SERVICE", width: isIntraState ? 0.19 : 0.20, key: "service_name" },
+      { label: "QTY", width: 0.05, key: "quantity", align: "right" },
+      { label: "RATE", width: isIntraState ? 0.08 : 0.08, key: "rate", align: "right" },
+      { label: "GROSS AMT", width: isIntraState ? 0.13 : 0.14, key: "amount", align: "right" },
+      { label: "DISC", width: 0.08, key: "line_discount_share", align: "right" },
+      { label: "TAXABLE", width: isIntraState ? 0.10 : 0.11, key: "taxable_amount", align: "right" },
+      { label: "GST %", width: isIntraState ? 0.07 : 0.08, key: "gst_percentage", align: "right" },
     ];
 
     const taxCols = isIntraState
       ? [
-        { label: "CGST", width: 0.09, key: "cgst_amount", align: "right" },
-        { label: "SGST", width: 0.09, key: "sgst_amount", align: "right" },
+        { label: "CGST", width: 0.075, key: "cgst_amount", align: "right" },
+        { label: "SGST", width: 0.075, key: "sgst_amount", align: "right" },
       ]
-      : [{ label: "IGST", width: 0.18, key: "igst_amount", align: "right" }];
+      : [{ label: "IGST", width: 0.10, key: "igst_amount", align: "right" }];
 
     const totalCol = {
-      label: "Total",
-      width: 0.14,
+      label: "TOTAL",
+      width: isIntraState ? 0.15 : 0.16,
       key: "final_amount",
       align: "right",
     };
@@ -229,134 +306,274 @@ export const generateInvoicePdf = async (req, res) => {
     const finalServiceCols = [...serviceCols, ...taxCols, totalCol];
 
     const inventoryCols = [
-      { label: "Item", width: 0.40, key: "service_name" },
-      { label: "Qty", width: 0.10, key: "quantity", align: "right" },
-      { label: "MRP", width: 0.15, key: "mrp", align: "right" },
-      { label: "Rate", width: 0.15, key: "rate", align: "right" },
-      { label: "Total", width: 0.20, key: "final_amount", align: "right" },
+      { label: "ITEM", width: 0.26, key: "service_name" },
+      { label: "QTY", width: 0.07, key: "quantity", align: "right" },
+      { label: "MRP", width: 0.12, key: "mrp", align: "right" },
+      { label: "RATE", width: 0.13, key: "rate", align: "right" },
+      { label: "GROSS AMT", width: 0.20, key: "amount", align: "right" },
+      { label: "TOTAL", width: 0.22, key: "final_amount", align: "right" },
     ];
+
     console.log("bill.bill_line_items siddhant ", bill.bill_line_items);
-    const serviceItems = bill.bill_line_items.filter(item => !isInventoryBillLine(item));
-    const inventoryItems = bill.bill_line_items.filter(item => isInventoryBillLine(item));
-   // console.log("serviceItems siddhant ", serviceItems);
+    const serviceItems = bill.bill_line_items.filter((item) => !isInventoryBillLine(item));
+    const inventoryItems = bill.bill_line_items.filter((item) => isInventoryBillLine(item));
     console.log("inventoryItems siddhant ", inventoryItems);
 
-    let y = doc.y;
-
     const renderTable = (items, cols, title) => {
-      if (items.length === 0) return y;
+      if (items.length === 0) return currentY;
 
-      if (title) {
-        doc.fontSize(11).font(baseFont + "-Bold").text(title, leftMargin, y);
-        y += 20;
+      if (currentY + 50 > pageHeight - bottomMargin) {
+        doc.addPage();
+        drawPageDecorations();
+        currentY = topMargin + 10;
       }
 
-      const colWidths = cols.map((col) => col.width * usableWidth);
-      const rowHeight = 20;
+      if (title) {
+        doc.save();
+        doc.roundedRect(leftMargin, currentY, 4, 14, 2).fill("#0F172A");
+        doc
+          .font(boldFont)
+          .fontSize(10.5)
+          .fillColor("#0F172A")
+          .text(title.toUpperCase(), leftMargin + 10, currentY + 1);
 
-      // --- Header Row ---
-      doc.fontSize(9).font(baseFont + "-Bold");
-      let x = leftMargin;
-      cols.forEach((col, i) => {
-        doc.text(col.label, x, y, {
-          width: colWidths[i],
-          align: col.align || "left",
-        });
-        x += colWidths[i];
-      });
-      y += rowHeight + 4;
+        const titleWidth = doc.widthOfString(title.toUpperCase());
+        doc
+          .moveTo(leftMargin + 16 + titleWidth, currentY + 8)
+          .lineTo(leftMargin + usableWidth, currentY + 8)
+          .strokeColor("#E2E8F0")
+          .lineWidth(0.5)
+          .stroke();
 
-      // --- Data Rows ---
-      doc.font(baseFont);
-      items.forEach((item) => {
-        x = leftMargin;
+        doc.restore();
+        currentY += 22;
+      }
+
+      const colWidths = cols.map((col) => Math.floor(col.width * usableWidth));
+      const sumWidths = colWidths.reduce((a, b) => a + b, 0);
+      colWidths[colWidths.length - 1] += usableWidth - sumWidths;
+
+      const headerHeight = 22;
+
+      const drawHeaderRow = (yPos) => {
+        doc.save();
+        doc
+          .roundedRect(leftMargin, yPos, usableWidth, headerHeight, 3)
+          .fill("#0F172A");
+
+        let hX = leftMargin;
         cols.forEach((col, i) => {
-          let value = "N/A";
+          const availW = colWidths[i] - 6;
+          let fontSize = cols.length > 7 ? 7.2 : 8;
+          doc.font(boldFont).fontSize(fontSize);
+          while (fontSize > 5.5 && doc.widthOfString(col.label) > availW) {
+            fontSize -= 0.3;
+            doc.fontSize(fontSize);
+          }
+          doc.fillColor("#FFFFFF");
+          const textY = yPos + (headerHeight - fontSize) / 2 - 0.5;
+          doc.text(col.label, hX + 3, textY, {
+            width: availW,
+            align: col.align || "left",
+            lineBreak: false,
+          });
+          hX += colWidths[i];
+        });
+        doc.restore();
+      };
+
+      // Header Row
+      drawHeaderRow(currentY);
+      currentY += headerHeight;
+
+      // Data Rows
+      items.forEach((item, rowIndex) => {
+        const formattedValues = cols.map((col) => {
           if (col.key === "service_name") {
-            value = item.service_name || item.description || "N/A";
+            return item.service_name || item.description || "N/A";
           } else if (col.key === "quantity") {
             const qty = parseFloat(item.quantity);
-            value = Number.isFinite(qty)
+            return Number.isFinite(qty)
               ? qty % 1 === 0
                 ? String(qty)
                 : qty.toFixed(3).replace(/\.?0+$/, "")
               : "N/A";
           } else if (col.key === "mrp") {
-            value = withRupee(item.inventory_batches?.mrp);
+            return withRupee(item.inventory_batches?.mrp);
+          } else if (col.key === "amount") {
+            const qty = parseFloat(item.quantity || 0);
+            const rate = parseFloat(item.rate != null ? item.rate : 0);
+            const totalQtyTimesRate = qty * rate;
+            return withRupee(totalQtyTimesRate);
           } else if (col.key === "gst_percentage") {
             const pct = item.gst_percentage;
-            value = pct != null ? `${pct}%` : "N/A";
+            return pct != null ? `${pct}%` : "N/A";
+          } else if (["cgst_amount", "sgst_amount", "igst_amount"].includes(col.key)) {
+            const val = parseFloat(item[col.key]);
+            return !isNaN(val) ? val.toFixed(1) : "0.0";
           } else {
             const isMonetary = [
               "mrp",
               "rate",
-              "amount",
               "taxable_amount",
-              "cgst_amount",
-              "sgst_amount",
-              "igst_amount",
               "final_amount",
               "line_discount_share",
             ].includes(col.key);
-            value = isMonetary
+            return isMonetary
               ? withRupee(item[col.key])
               : String(item[col.key] ?? "N/A");
           }
-          doc.fontSize(9).text(value, x, y, {
-            width: colWidths[i],
+        });
+
+        doc.font(baseFont).fontSize(cols.length > 7 ? 7.5 : 8.5);
+        const textH = doc.heightOfString(formattedValues[0], {
+          width: colWidths[0] - 6,
+        });
+        const rowHeight = Math.max(22, textH + 10);
+
+        if (currentY + rowHeight > pageHeight - bottomMargin) {
+          doc.addPage();
+          drawPageDecorations();
+          currentY = topMargin + 10;
+          drawHeaderRow(currentY);
+          currentY += headerHeight;
+        }
+
+        if (rowIndex % 2 === 1) {
+          doc.save();
+          doc.rect(leftMargin, currentY, usableWidth, rowHeight).fill("#F8FAFC");
+          doc.restore();
+        }
+
+        doc.font(baseFont).fillColor("#1E293B");
+        let x = leftMargin;
+        cols.forEach((col, i) => {
+          const valStr = formattedValues[i];
+          let fontSize = cols.length > 7 ? 7.5 : 8.5;
+          doc.fontSize(fontSize);
+
+          if (col.align === "right" || col.align === "center") {
+            const availW = colWidths[i] - 4;
+            while (doc.widthOfString(valStr) > availW && fontSize > 6.0) {
+              fontSize -= 0.5;
+              doc.fontSize(fontSize);
+            }
+          }
+
+          doc.text(valStr, x + 2, currentY + 6, {
+            width: colWidths[i] - 4,
             align: col.align || "left",
+            lineBreak: col.key === "service_name",
           });
           x += colWidths[i];
         });
-        y += rowHeight;
+
+        doc.save();
+        doc
+          .moveTo(leftMargin, currentY + rowHeight)
+          .lineTo(leftMargin + usableWidth, currentY + rowHeight)
+          .strokeColor("#E2E8F0")
+          .lineWidth(0.5)
+          .stroke();
+        doc.restore();
+
+        currentY += rowHeight;
       });
 
-      y += 15;
-      return y;
+      currentY += 16;
+      return currentY;
     };
 
-    y = renderTable(serviceItems, finalServiceCols, "Services");
-    y = renderTable(inventoryItems, inventoryCols, "Retail");
+    currentY = renderTable(serviceItems, finalServiceCols, "Services");
+    currentY = renderTable(inventoryItems, inventoryCols, "Retail");
 
-    doc.y = y + 10;
+    // === SUMMARY SECTION ===
+    const summaryWidth = 240;
+    const summaryX = pageWidth - rightMargin - summaryWidth;
 
-    // === Summary Section ===
-    const summaryRight = leftMargin + usableWidth;
-    let currentY = doc.y;
+    const estimatedSummaryHeight = 110;
+    if (currentY + estimatedSummaryHeight > pageHeight - bottomMargin) {
+      doc.addPage();
+      drawPageDecorations();
+      currentY = topMargin + 10;
+    }
 
-    const addRow = (label, value, bold = false) => {
-      doc.fontSize(bold ? 12 : 10).font(baseFont);
-      doc.text(label, leftMargin, currentY, { width: usableWidth - 120 });
-      doc.text(value, summaryRight - 100, currentY, {
-        width: 100,
-        align: "right",
-      });
-      currentY += bold ? 20 : 15;
+    let summaryY = currentY + 5;
+
+    const addSummaryRow = (label, value, isGrandTotal = false) => {
+      if (isGrandTotal) {
+        summaryY += 6;
+        doc.save();
+        doc
+          .roundedRect(summaryX, summaryY, summaryWidth, 34, 5)
+          .fill("#0F172A");
+
+        doc
+          .font(boldFont)
+          .fontSize(10)
+          .fillColor("#FFFFFF")
+          .text(label.toUpperCase(), summaryX + 12, summaryY + 11, { width: 110 });
+
+        doc
+          .font(boldFont)
+          .fontSize(12)
+          .fillColor("#FFFFFF")
+          .text(value, summaryX + 110, summaryY + 10, {
+            width: summaryWidth - 122,
+            align: "right",
+          });
+        doc.restore();
+        summaryY += 40;
+      } else {
+        doc.font(baseFont).fontSize(9).fillColor("#475569");
+        doc.text(label, summaryX, summaryY, { width: 130 });
+
+        doc
+          .font(boldFont)
+          .fontSize(9)
+          .fillColor("#1E293B")
+          .text(value, summaryX + 130, summaryY, {
+            width: summaryWidth - 130,
+            align: "right",
+          });
+
+        summaryY += 14;
+
+        doc.save();
+        doc
+          .moveTo(summaryX, summaryY + 2)
+          .lineTo(summaryX + summaryWidth, summaryY + 2)
+          .strokeColor("#F1F5F9")
+          .lineWidth(0.5)
+          .stroke();
+        doc.restore();
+
+        summaryY += 5;
+      }
     };
 
-    addRow("Sub Total", withRupee(bill.sub_total));
-
+    addSummaryRow("Sub Total", withRupee(bill.sub_total));
 
     if (
       String(bill.discount_amount) !== "0" &&
       String(bill.discount_amount) !== "0.00"
     ) {
-      addRow(
+      addSummaryRow(
         `Discount (${bill.discount_percentage}%)`,
         `${withRupee(bill.discount_amount)}`
       );
     }
-    addRow("Taxable After Discount", withRupee(bill.taxable_after_discount));
-    addRow("Total Tax", withRupee(bill.total_tax));
+    addSummaryRow("Taxable After Discount", withRupee(bill.taxable_after_discount));
+    addSummaryRow("Total Tax", withRupee(bill.total_tax));
     if (bill.bank_charges != "" && bill.bank_charges) {
-      addRow("Bank Charges (2%)", withRupee(bill.bank_charges));
+      addSummaryRow("Bank Charges (2%)", withRupee(bill.bank_charges));
     }
 
     if (
       String(bill.shipping_charges) !== "0" &&
       String(bill.shipping_charges) !== "0.00"
     ) {
-      addRow("Shipping", withRupee(bill.shipping_charges));
+      addSummaryRow("Shipping", withRupee(bill.shipping_charges));
     }
 
     if (
@@ -368,64 +585,73 @@ export const generateInvoicePdf = async (req, res) => {
       const formattedRO = roValue.startsWith("-")
         ? `- ${roValue.substring(1)}`
         : `+ ${roValue}`;
-      addRow("Round Off", formattedRO);
+      addSummaryRow("Round Off", formattedRO);
     }
 
-    addRow("Grand Total", withRupee(bill.grand_total), true);
+    addSummaryRow("Grand Total", `Rs. ${withRupee(bill.grand_total)}`, true);
 
-    // === Notes & Terms ===
-    currentY += 20;
-    // if (bill.notes) {
-    //   doc.fontSize(9).font(baseFont);
-    //   doc.text("Notes:", leftMargin, currentY);
-    //   doc.text(bill.notes, leftMargin, currentY + 12, {
-    //     width: usableWidth,
-    //   });
-    //   currentY += 40;
-    // }
-    // if (bill.terms) {
-    //   doc.fontSize(10).font(baseFont);
-    //   doc.text("Notes", leftMargin, currentY);
-    //   doc.text(bill.terms, leftMargin, currentY + 12, {
-    //     width: usableWidth,
-    //   });
-    //   currentY += 40;
-    // }
+    // === SYSTEM GENERATED NOTICE ===
+    let noticeY = summaryY + 20;
 
-    // === Signature / Stamp ===
-    // Place signature block ~100px from bottom, but below current content
-    const minSignatureY = doc.page.height - 120; // 120px from bottom
-    const signatureY = Math.max(currentY + 20, minSignatureY);
+    if (noticeY + 25 > pageHeight - bottomMargin) {
+      doc.addPage();
+      drawPageDecorations();
+      noticeY = topMargin + 20;
+    }
 
-    doc.fontSize(10).font(baseFont);
-
-    // Left: "For [Company Name]"
-    const forText = "For " + (bill?.brand_name_text || org?.name || "");
-    doc.text(forText, leftMargin, signatureY);
-
-    // Right: Signature area (aligned to right side)
-    const signatureAreaRight = leftMargin + usableWidth; // right edge of content
-    const signatureAreaWidth = 200; // width of signature box
-    const signatureAreaLeft = signatureAreaRight - signatureAreaWidth;
-
-    // Label: "Authorized Signature"
-    doc.text("Authorized Signature", signatureAreaLeft, signatureY, {
-      width: signatureAreaWidth,
-      align: "center",
-    });
-
-    // Signature line (centered under the label)
-    const lineY = signatureY + 15;
     doc
-      .moveTo(signatureAreaLeft, lineY)
-      .lineTo(signatureAreaRight, lineY)
-      .dash(2, { space: 2 })
-      .stroke()
-      .undash();
+      .font(baseFont)
+      .fontSize(8.5)
+      .fillColor("#64748B")
+      .text(
+        "This is a system-generated invoice. No signature required.",
+        leftMargin,
+        noticeY,
+        {
+          width: usableWidth,
+          align: "center",
+        }
+      );
 
     if (isDeletedInvoice(bill)) {
       applyDeletedWatermarkToAllPages(doc, baseFont);
     }
+
+    // Apply Page Numbers & Bottom Footer Rule across all pages (with bottom margin set to 0 to avoid page breaks)
+    const oldBottomMargin = doc.page.margins.bottom;
+    doc.page.margins.bottom = 0;
+
+    const range = doc.bufferedPageRange();
+    const totalPages = range.count;
+    for (let i = range.start; i < range.start + totalPages; i++) {
+      doc.switchToPage(i);
+      doc.save();
+      doc.font(baseFont).fontSize(8).fillColor("#94A3B8");
+
+      const footerY = pageHeight - 25;
+      doc
+        .moveTo(leftMargin, footerY - 5)
+        .lineTo(pageWidth - rightMargin, footerY - 5)
+        .strokeColor("#F1F5F9")
+        .lineWidth(0.5)
+        .stroke();
+
+      doc.text("Thank you for your business!", leftMargin, footerY, {
+        width: 200,
+        align: "left",
+        lineBreak: false,
+      });
+
+      if (totalPages > 1) {
+        doc.text(`Page ${i + 1} of ${totalPages}`, pageWidth - rightMargin - 150, footerY, {
+          width: 150,
+          align: "right",
+          lineBreak: false,
+        });
+      }
+      doc.restore();
+    }
+    doc.page.margins.bottom = oldBottomMargin;
 
     doc.end();
   } catch (error) {
@@ -861,10 +1087,21 @@ export const generateReceiptPdf = async (req, res) => {
       return res.status(404).json({ error: "Organization not found" });
     }
 
+    const leftMargin = 40;
+    const rightMargin = 40;
+    const topMargin = 40;
+    const bottomMargin = 50;
+
     const doc = new PDFDocument({
       size: "A4",
-      margins: { top: 60, bottom: 60, left: 50, right: 50 },
+      margins: { top: topMargin, bottom: bottomMargin, left: leftMargin, right: rightMargin },
+      bufferPages: true,
     });
+
+    if (fs.existsSync(fontPath)) {
+      doc.registerFont("NotoSans", fontPath);
+      doc.registerFont("NotoSans-Bold", fontPath);
+    }
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
@@ -873,216 +1110,370 @@ export const generateReceiptPdf = async (req, res) => {
     );
     doc.pipe(res);
 
-    const leftMargin = 50;
+    const baseFont = fs.existsSync(fontPath) ? "NotoSans" : "Helvetica";
+    const boldFont = fs.existsSync(fontPath) ? "NotoSans-Bold" : "Helvetica-Bold";
+
     const pageWidth = doc.page.width;
-    const usableWidth = pageWidth - leftMargin - 50;
+    const pageHeight = doc.page.height;
+    const usableWidth = pageWidth - leftMargin - rightMargin;
 
-    // === ORGANIZATION HEADER ===
+    // Draw Top Accent Stripe (Dual Line)
+    const drawPageDecorations = () => {
+      doc.save();
+      doc.rect(0, 0, pageWidth, 5).fill("#0F172A");
+      doc.rect(0, 5, pageWidth, 2).fill("#059669");
+      doc.restore();
+    };
+
+    drawPageDecorations();
+
+    // === ORGANIZATION HEADER & RECEIPT TITLE ===
     const orgName = receipt?.brand_name_text || "";
-    doc.fontSize(20).font("Helvetica-Bold").text(orgName, { align: "center" });
-    doc.moveDown(0.2);
+    let headerY = 24;
 
-    // const orgDetails = [
-    //   organization.billing_address,
-    //   organization.billing_phone ? `📞 ${organization.billing_phone}` : "",
-    //   organization.billing_email ? `✉️ ${organization.billing_email}` : "",
-    //   organization.gstnumber ? `GSTIN: ${organization.gstnumber}` : "",
-    // ]
-    //   .filter(Boolean)
-    //   .join("\n");
+    // Brand / Org Title (Left)
+    if (orgName) {
+      doc
+        .font(boldFont)
+        .fontSize(19)
+        .fillColor("#0F172A")
+        .text(orgName, leftMargin, headerY, { width: 310, align: "left" });
+    }
 
-    // if (orgDetails) {
-    //   doc.fontSize(9).font("Helvetica").text(orgDetails, { align: "center" });
-    // }
-    // doc.moveDown(1.2);
+    // Official Receipt Badge (Top Right)
+    const badgeWidth = 160;
+    const badgeHeight = 24;
+    const badgeX = pageWidth - rightMargin - badgeWidth;
+    const badgeY = headerY;
 
-    // === RECEIPT TITLE & INFO ===
+    const isValid = receipt.is_valid;
+    const statusBg = isValid ? "#ECFDF5" : "#FEF2F2";
+    const statusBorder = isValid ? "#A7F3D0" : "#FCA5A5";
+    const statusText = isValid ? "#047857" : "#B91C1C";
+
+    doc.save();
     doc
-      .fontSize(16)
-      .font("Helvetica-Bold")
-      .text("OFFICIAL PAYMENT RECEIPT", { align: "center" });
-    doc.moveDown(0.8);
+      .roundedRect(badgeX, badgeY, badgeWidth, badgeHeight, 5)
+      .fillColor(statusBg)
+      .strokeColor(statusBorder)
+      .lineWidth(1)
+      .fillAndStroke();
 
-    doc.fontSize(10).font("Helvetica");
-    doc.text(`Receipt No: ${receipt.receipt_id}`, { align: "right" });
-    doc.text(`Date & Time: ${formatDate(receipt.created_at)}`, {
-      align: "right",
-    });
-    doc.text(`Status: ${receipt.is_valid ? "PAID" : "VOID"}`, {
-      align: "right",
-    });
-    doc.moveDown(1.5);
-
-    // === CLIENT SECTION ===
     doc
-      .fontSize(11)
-      .font("Helvetica-Bold")
-      .text("Received With Thanks From:", leftMargin, doc.y);
-    doc.moveDown(0.3);
+      .font(boldFont)
+      .fontSize(9)
+      .fillColor(statusText)
+      .text("PAYMENT RECEIPT", badgeX, badgeY + 6, {
+        width: badgeWidth,
+        align: "center",
+      });
+    doc.restore();
+
+    // Meta Details (Under Badge)
+    let metaY = badgeY + badgeHeight + 8;
+    doc
+      .font(boldFont)
+      .fontSize(9.5)
+      .fillColor("#0F172A")
+      .text(`Receipt No: ${receipt.receipt_id}`, leftMargin + 300, metaY, {
+        width: 215,
+        align: "right",
+      });
+    metaY += 14;
+    doc
+      .font(baseFont)
+      .fontSize(8.5)
+      .fillColor("#64748B")
+      .text(`Date & Time: ${formatDate(receipt.created_at)}`, leftMargin + 300, metaY, {
+        width: 215,
+        align: "right",
+      });
+    metaY += 14;
+    doc
+      .font(boldFont)
+      .fontSize(8.5)
+      .fillColor(statusText)
+      .text(`Status: ${isValid ? "PAID" : "VOID"}`, leftMargin + 300, metaY, {
+        width: 215,
+        align: "right",
+      });
+
+    // === CLIENT SECTION CARD WITH LEFT ACCENT ===
+    let clientCardY = Math.max(doc.y + 16, 85);
 
     const clientName =
       [receipt.clients.first_name, receipt.clients.last_name]
         .filter(Boolean)
         .join(" ") || "N/A";
 
-    doc.fontSize(10).font("Helvetica");
-    doc.text(clientName, leftMargin, doc.y);
-    let clientY = doc.y + 14;
-    if (receipt.clients.email) {
-      doc.text(`Email: ${receipt.clients.email}`, leftMargin, clientY);
-      clientY += 14;
-    }
-    if (receipt.clients.phone) {
-      doc.text(`Mobile: ${receipt.clients.phone}`, leftMargin, clientY);
-      clientY += 14;
-    }
-    if (receipt.clients.address) {
-      doc.text(`Address: ${receipt.clients.address}`, leftMargin, clientY);
-    }
+    const clientDetails = [];
+    clientDetails.push({ label: "Client Name", value: clientName, isBold: true });
+    if (receipt.clients.email) clientDetails.push({ label: "Email", value: receipt.clients.email });
+    if (receipt.clients.phone) clientDetails.push({ label: "Mobile", value: receipt.clients.phone });
+    if (receipt.clients.address) clientDetails.push({ label: "Address", value: receipt.clients.address });
 
-    doc.moveDown(1.8); // Reduced from 2.5
+    const cardHeight = 40 + clientDetails.length * 15;
+
+    doc.save();
+    doc
+      .roundedRect(leftMargin, clientCardY, usableWidth, cardHeight, 6)
+      .fillColor("#F8FAFC")
+      .strokeColor("#E2E8F0")
+      .lineWidth(1)
+      .fillAndStroke();
+
+    // Left Emerald Accent Bar
+    doc
+      .roundedRect(leftMargin, clientCardY, 4, cardHeight, 2)
+      .fillColor("#059669");
+
+    doc
+      .font(boldFont)
+      .fontSize(8)
+      .fillColor("#475569")
+      .text("RECEIVED WITH THANKS FROM:", leftMargin + 14, clientCardY + 10, {
+        width: usableWidth - 28,
+      });
+
+    doc
+      .moveTo(leftMargin + 14, clientCardY + 23)
+      .lineTo(leftMargin + usableWidth - 14, clientCardY + 23)
+      .strokeColor("#CBD5E1")
+      .lineWidth(0.5)
+      .stroke();
+
+    let detailY = clientCardY + 28;
+    clientDetails.forEach((detail) => {
+      if (detail.isBold) {
+        doc.font(boldFont).fontSize(9.5).fillColor("#1E293B");
+        doc.text(detail.value, leftMargin + 14, detailY, { width: usableWidth - 28 });
+      } else {
+        doc.font(baseFont).fontSize(8.5).fillColor("#64748B");
+        doc.text(`${detail.label}: `, leftMargin + 14, detailY, { continued: true });
+        doc.font(baseFont).fillColor("#1E293B").text(detail.value);
+      }
+      detailY += 15;
+    });
+
+    doc.restore();
 
     // === LINE ITEMS TABLE ===
+    let currentY = clientCardY + cardHeight + 22;
+
     const cols = [
-      { label: "Particulars", width: 0.45, key: "service_name" },
-      { label: "Qty", width: 0.1, key: "quantity", align: "center" },
+      { label: "PARTICULARS", width: 0.80, key: "service_name" },
+      { label: "QTY", width: 0.20, key: "quantity", align: "center" },
     ];
 
-    const colWidths = cols.map((col) => col.width * usableWidth);
-    let y = doc.y;
+    const colWidths = cols.map((col) => Math.floor(col.width * usableWidth));
+    colWidths[colWidths.length - 1] += usableWidth - colWidths.reduce((a, b) => a + b, 0);
+
+    const headerHeight = 22;
 
     // Table Header
-    doc.fontSize(9).font("Helvetica-Bold");
+    doc.save();
+    doc
+      .roundedRect(leftMargin, currentY, usableWidth, headerHeight, 3)
+      .fill("#0F172A");
+
+    doc.font(boldFont).fontSize(8).fillColor("#FFFFFF");
     let x = leftMargin;
     cols.forEach((col, i) => {
-      doc.text(col.label, x, y, {
-        width: colWidths[i],
+      doc.text(col.label, x + 8, currentY + 6, {
+        width: colWidths[i] - 16,
         align: col.align || "left",
       });
       x += colWidths[i];
     });
-    y += 18;
+    doc.restore();
 
-    // Separator line
-    doc
-      .moveTo(leftMargin, y)
-      .lineTo(leftMargin + usableWidth, y)
-      .stroke();
-    y += 8;
+    currentY += headerHeight;
 
-    // Data Rows
-    doc.fontSize(9).font("Helvetica");
-    receipt.receipt_bill_line_items.forEach((item) => {
-      const price = item.services?.price ? parseFloat(item.services.price) : 0;
+    // Table Rows
+    doc.font(baseFont).fontSize(8.5);
+    receipt.receipt_bill_line_items.forEach((item, index) => {
+      const serviceName = item.service_name || item.services?.name || "Service";
       const qty = parseFloat(item.quantity);
-      const total = qty * price;
+      const qtyStr = qty.toFixed(3);
 
-      x = leftMargin;
-      cols.forEach((col, i) => {
-        let value = "";
-        if (col.key === "service_name") {
-          value = item.service_name || item.services?.name || "Service";
-        } else if (col.key === "quantity") {
-          value = qty.toFixed(3);
-        }
+      const textH = doc.heightOfString(serviceName, { width: colWidths[0] - 16 });
+      const rowHeight = Math.max(22, textH + 10);
 
-        // else if (col.key === "price") {
-        //   value = price.toFixed(2);
-        // } else if (col.key === "total") {
-        //   value = total.toFixed(2);
-        // }
+      if (currentY + rowHeight > pageHeight - bottomMargin) {
+        doc.addPage();
+        drawPageDecorations();
+        currentY = topMargin + 10;
+      }
 
-        doc.text(value, x, y, {
-          width: colWidths[i],
-          align: col.align || "left",
-        });
-        x += colWidths[i];
+      if (index % 2 === 1) {
+        doc.save();
+        doc.rect(leftMargin, currentY, usableWidth, rowHeight).fill("#F8FAFC");
+        doc.restore();
+      }
+
+      doc.fillColor("#1E293B");
+      doc.text(serviceName, leftMargin + 8, currentY + 6, {
+        width: colWidths[0] - 16,
+        align: "left",
       });
-      y += 20;
+
+      doc.text(qtyStr, leftMargin + colWidths[0] + 8, currentY + 6, {
+        width: colWidths[1] - 16,
+        align: "center",
+      });
+
+      doc.save();
+      doc
+        .moveTo(leftMargin, currentY + rowHeight)
+        .lineTo(leftMargin + usableWidth, currentY + rowHeight)
+        .strokeColor("#E2E8F0")
+        .lineWidth(0.5)
+        .stroke();
+      doc.restore();
+
+      currentY += rowHeight;
     });
 
-    // === TOTAL AMOUNT BOX (positioned absolutely) ===
-    const totalBoxY = y + 15;
-    const totalBoxWidth = 220;
-    const totalBoxX = pageWidth - totalBoxWidth - 50;
+    // === TOTAL AMOUNT CALLOUT BOX ===
+    const totalBoxWidth = 230;
+    const totalBoxX = pageWidth - rightMargin - totalBoxWidth;
+    const totalBoxY = currentY + 16;
+
+    doc.save();
+    doc
+      .roundedRect(totalBoxX, totalBoxY, totalBoxWidth, 48, 6)
+      .fillColor("#F0FDF4")
+      .strokeColor("#BBF7D0")
+      .lineWidth(1)
+      .fillAndStroke();
 
     doc
-      .roundedRect(totalBoxX, totalBoxY, totalBoxWidth, 50, 5)
-      .strokeColor("#000")
-      .lineWidth(1)
-      .stroke();
+      .font(boldFont)
+      .fontSize(8)
+      .fillColor("#166534")
+      .text("TOTAL AMOUNT RECEIVED", totalBoxX + 14, totalBoxY + 9, {
+        width: totalBoxWidth - 28,
+      });
 
-    doc.fontSize(11).font("Helvetica-Bold");
-    doc.text("TOTAL AMOUNT", totalBoxX + 15, totalBoxY + 12);
-    doc.fontSize(14).font("Helvetica-Bold");
-    doc.text(withRupee(receipt.amount), totalBoxX + 15, totalBoxY + 28);
+    doc
+      .font(boldFont)
+      .fontSize(14)
+      .fillColor("#15803D")
+      .text(`Rs. ${withRupee(receipt.amount)}`, totalBoxX + 14, totalBoxY + 24, {
+        width: totalBoxWidth - 28,
+      });
+    doc.restore();
 
-    // === FOOTER SECTION (absolute positioning to prevent page break) ===
-    const footerStartY = totalBoxY + 80;
+    // === CERTIFICATION & FOOTER SECTION ===
+    let footerStartY = totalBoxY + 68;
 
-    // Payment acknowledgment
-    doc.fontSize(10).font("Helvetica");
-    doc.text(
-      "This is to certify that the above-mentioned amount has been received in full satisfaction of the services rendered.",
-      leftMargin,
-      footerStartY,
-      { width: usableWidth, align: "center" }
-    );
+    if (footerStartY + 140 > pageHeight - bottomMargin) {
+      doc.addPage();
+      drawPageDecorations();
+      footerStartY = topMargin + 10;
+    }
+
+    doc
+      .font(baseFont)
+      .fontSize(8.5)
+      .fillColor("#64748B")
+      .text(
+        "This is to certify that the above-mentioned amount has been received in full satisfaction of the services rendered.",
+        leftMargin,
+        footerStartY,
+        { width: usableWidth, align: "center" }
+      );
 
     doc.text(
       "This receipt is valid without signature only if issued electronically through our official system.",
       leftMargin,
-      footerStartY + 22,
+      footerStartY + 16,
       { width: usableWidth, align: "center" }
     );
 
-    // Authorized stamp
-    const stampY = footerStartY + 60;
-    const stampWidth = 200;
+    // Authorized Stamp & Signature Block
+    const stampY = footerStartY + 50;
+    const stampWidth = 220;
     const stampX = (pageWidth - stampWidth) / 2;
 
-    doc.fontSize(9).font("Helvetica-Bold");
-    doc.text("FOR & ON BEHALF OF", stampX, stampY, {
-      width: stampWidth,
-      align: "center",
-    });
-
-    doc.fontSize(10).font("Helvetica-Bold");
-    doc.text(orgName, stampX, stampY + 12, {
-      width: stampWidth,
-      align: "center",
-    });
-
-    // Signature line
-    const lineY = stampY + 28;
     doc
-      .moveTo(stampX, lineY)
-      .lineTo(stampX + stampWidth, lineY)
+      .font(boldFont)
+      .fontSize(8)
+      .fillColor("#475569")
+      .text("FOR & ON BEHALF OF", stampX, stampY, {
+        width: stampWidth,
+        align: "center",
+      });
+
+    doc
+      .font(boldFont)
+      .fontSize(9.5)
+      .fillColor("#1E293B")
+      .text(orgName, stampX, stampY + 12, {
+        width: stampWidth,
+        align: "center",
+      });
+
+    const lineY = stampY + 38;
+    doc.save();
+    doc
+      .moveTo(stampX + 20, lineY)
+      .lineTo(stampX + stampWidth - 20, lineY)
+      .strokeColor("#CBD5E1")
       .dash(2, { space: 2 })
-      .stroke()
-      .undash();
+      .stroke();
+    doc.restore();
 
-    doc.fontSize(9).font("Helvetica");
-    doc.text("Authorized Signatory", stampX, lineY + 5, {
+    doc
+      .font(baseFont)
+      .fontSize(8.5)
+      .fillColor("#64748B")
+      .text("Authorized Signatory", stampX, lineY + 6, {
+        width: stampWidth,
+        align: "center",
+      });
+
+    const footerText = "This is a system-generated receipt. No signature required.";
+    doc.fontSize(7.5).fillColor("#94A3B8").text(footerText, stampX, lineY + 20, {
       width: stampWidth,
       align: "center",
     });
-    doc.moveDown(2);
-    const footerText =
-      "This is a system-generated receipt. No signature required.";
-    doc.text(footerText, stampX + 5, lineY + 20, {
-      width: stampWidth,
-      align: "center",
-    });
 
-    // Fixed bottom footer note
-    // doc.fontSize(8).font("Helvetica").fillColor("#666");
-    // const footerText =
-    //   "This is a system-generated receipt. No signature required.";
-    // doc.text(footerText, 0, doc.page.height - 50, {
-    //   width: pageWidth,
-    //   align: "center",
-    // });
+    // Page Numbers & Bottom Rule (with bottom margin set to 0 to avoid page breaks)
+    const oldBottomMarginReceipt = doc.page.margins.bottom;
+    doc.page.margins.bottom = 0;
+
+    const range = doc.bufferedPageRange();
+    const totalPages = range.count;
+    for (let i = range.start; i < range.start + totalPages; i++) {
+      doc.switchToPage(i);
+      doc.save();
+      doc.font(baseFont).fontSize(8).fillColor("#94A3B8");
+
+      const footerY = pageHeight - 25;
+      doc
+        .moveTo(leftMargin, footerY - 5)
+        .lineTo(pageWidth - rightMargin, footerY - 5)
+        .strokeColor("#F1F5F9")
+        .lineWidth(0.5)
+        .stroke();
+
+      doc.text("Official Payment Receipt", leftMargin, footerY, {
+        width: 200,
+        align: "left",
+        lineBreak: false,
+      });
+
+      if (totalPages > 1) {
+        doc.text(`Page ${i + 1} of ${totalPages}`, pageWidth - rightMargin - 150, footerY, {
+          width: 150,
+          align: "right",
+          lineBreak: false,
+        });
+      }
+      doc.restore();
+    }
+    doc.page.margins.bottom = oldBottomMarginReceipt;
 
     doc.end();
   } catch (error) {
