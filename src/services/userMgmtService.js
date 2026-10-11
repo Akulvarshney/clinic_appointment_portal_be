@@ -737,3 +737,66 @@ export const updateOrgDetailsService = async (orgId) => {
   });
   return org;
 };
+
+export const resetEmployeePasswordService = async ({
+  userId,
+  employeeId,
+  orgId,
+}) => {
+  let targetUserId = userId;
+
+  if (!targetUserId && employeeId) {
+    const employee = await Prisma.employees.findUnique({
+      where: { id: employeeId },
+      select: { userid: true },
+    });
+    if (!employee) {
+      throw new Error("Employee not found");
+    }
+    targetUserId = employee.userid;
+  }
+
+  if (!targetUserId) {
+    throw new Error("User ID is required");
+  }
+
+  const existingUser = await Prisma.users.findUnique({
+    where: { id: targetUserId },
+  });
+
+  if (!existingUser) {
+    throw new Error("User not found");
+  }
+
+  const defaultPassword = process.env.DEFAULT_USER_PASSWORD;
+  if (!defaultPassword) {
+    throw new Error(
+      "DEFAULT_USER_PASSWORD is not configured in the environment"
+    );
+  }
+
+  const hashedPassword = await hashPassword(defaultPassword);
+
+  const updatedUser = await Prisma.users.update({
+    where: { id: targetUserId },
+    data: {
+      password_hash: hashedPassword,
+      updated_at: new Date(),
+    },
+  });
+
+  return {
+    success: true,
+    message: `Password reset to default successfully. Default password is: ${defaultPassword}`,
+    defaultPassword,
+    userId: updatedUser.id,
+  };
+};
+
+export const getDefaultPasswordService = () => {
+  const defaultPassword = process.env.DEFAULT_USER_PASSWORD || "Ayogi@123";
+  return {
+    defaultPassword,
+  };
+};
+

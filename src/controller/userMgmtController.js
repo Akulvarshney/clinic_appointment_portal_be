@@ -11,6 +11,8 @@ import {
   getOrgDetailsService,
   saveOrgDetailsService,
   updateOrgDetailsService,
+  resetEmployeePasswordService,
+  getDefaultPasswordService,
 } from "../services/userMgmtService.js";
 import { response } from "express";
 import prisma from "../prisma.js";
@@ -523,9 +525,14 @@ export const updateOrgDetails = async (req, res) => {
 
 export const resetPasswordController = async (req, res) => {
   try {
-    const { newpassword, newPassword, resetUserId } = req.body;
-    const targetUserId = resetUserId || req.user?.id;
-    const passwordToSet = newpassword || newPassword;
+    const { newpassword, newPassword, resetUserId, useDefaultPassword } =
+      req.body;
+    const targetUserId = resetUserId || req.user?.id || req.userId;
+    let passwordToSet = newpassword || newPassword;
+
+    if (!passwordToSet && useDefaultPassword) {
+      passwordToSet = process.env.DEFAULT_USER_PASSWORD;
+    }
 
     if (!targetUserId || !passwordToSet) {
       return res.status(400).json({
@@ -555,3 +562,35 @@ export const resetPasswordController = async (req, res) => {
       .json({ message: err.message || "Error resetting password" });
   }
 };
+
+export const resetEmployeePasswordController = async (req, res) => {
+  try {
+    const { userId, employeeId, orgId } = req.body;
+    const response = await resetEmployeePasswordService({
+      userId,
+      employeeId,
+      orgId,
+    });
+    return sendResponse(res, response, 200);
+  } catch (err) {
+    console.error("Error in resetEmployeePasswordController:", err);
+    return res.status(400).json({
+      success: false,
+      message: err.message || "Error resetting employee password",
+    });
+  }
+};
+
+export const getDefaultPasswordController = async (req, res) => {
+  try {
+    const response = getDefaultPasswordService();
+    return sendResponse(res, response, 200);
+  } catch (err) {
+    console.error("Error in getDefaultPasswordController:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching default password",
+    });
+  }
+};
+

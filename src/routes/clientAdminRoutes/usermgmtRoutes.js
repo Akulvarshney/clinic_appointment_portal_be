@@ -14,6 +14,8 @@ import {
   getOrgBillingDetails,
   saveOrgDetails,
   resetPasswordController,
+  resetEmployeePasswordController,
+  getDefaultPasswordController,
 } from "../../controller/userMgmtController.js";
 import {
   validateCreateRole,
@@ -64,5 +66,7 @@ router.put("/updateNotification", updateNotification);
 router.get("/getOrgBillingDetails", getOrgBillingDetails);
 router.put("/saveOrgDetails", saveOrgDetails);
 router.post("/resetpassword", resetPasswordController);
+router.post("/resetEmployeePassword", resetEmployeePasswordController);
+router.get("/getDefaultPassword", getDefaultPasswordController);
 
 export default router;
