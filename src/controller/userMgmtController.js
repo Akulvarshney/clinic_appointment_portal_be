@@ -15,6 +15,7 @@ import {
 import { response } from "express";
 import prisma from "../prisma.js";
 import { normalizeOrgId } from "../util/orgId.js";
+import { hashPassword } from "../util/password.js";
 
 export const getUserDetails = async (req, res) => {
   try {
@@ -517,5 +518,40 @@ export const updateOrgDetails = async (req, res) => {
   } catch (err) {
     console.log(err);
     res.status(400).json({ message: "Error getting the records" });
+  }
+};
+
+export const resetPasswordController = async (req, res) => {
+  try {
+    const { newpassword, newPassword, resetUserId } = req.body;
+    const targetUserId = resetUserId || req.user?.id;
+    const passwordToSet = newpassword || newPassword;
+
+    if (!targetUserId || !passwordToSet) {
+      return res.status(400).json({
+        message: "resetUserId and newpassword are required",
+      });
+    }
+
+    const hashedPassword = await hashPassword(passwordToSet);
+
+    const updatedUser = await prisma.users.update({
+      where: { id: targetUserId },
+      data: {
+        password_hash: hashedPassword,
+        updated_at: new Date(),
+      },
+    });
+
+    return sendResponse(
+      res,
+      { message: "Password reset successfully", userId: updatedUser.id },
+      200
+    );
+  } catch (err) {
+    console.error("Error in resetPasswordController:", err);
+    return res
+      .status(500)
+      .json({ message: err.message || "Error resetting password" });
   }
 };

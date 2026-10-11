@@ -13,6 +13,7 @@ import {
   getUserDetails,
   getOrgBillingDetails,
   saveOrgDetails,
+  resetPasswordController,
 } from "../../controller/userMgmtController.js";
 import {
   validateCreateRole,
@@ -62,5 +63,6 @@ router.put("/updateNotification", updateNotification);
 
 router.get("/getOrgBillingDetails", getOrgBillingDetails);
 router.put("/saveOrgDetails", saveOrgDetails);
+router.post("/resetpassword", resetPasswordController);
 
 export default router;

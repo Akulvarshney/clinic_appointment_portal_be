@@ -211,8 +211,20 @@ export const generateInvoicePdf = async (req, res) => {
         align: "right",
       });
 
+    if (bill.payment_mode) {
+      metaY += 14;
+      doc
+        .font(baseFont)
+        .fontSize(8.5)
+        .fillColor("#64748B")
+        .text(`Payment Mode: ${bill.payment_mode}`, leftMargin + 300, metaY, {
+          width: 215,
+          align: "right",
+        });
+    }
+
     // === BILL FROM / BILL TO CARDS WITH ACCENT BAR ===
-    let cardsY = Math.max(doc.y + 16, 85);
+    let cardsY = Math.max(doc.y + 16, metaY + 16, 85);
 
     const cardGap = 15;
     const cardWidth = (usableWidth - cardGap) / 2;
@@ -491,7 +503,7 @@ export const generateInvoicePdf = async (req, res) => {
     const summaryWidth = 240;
     const summaryX = pageWidth - rightMargin - summaryWidth;
 
-    const estimatedSummaryHeight = 110;
+    const estimatedSummaryHeight = bill.payment_mode ? 130 : 110;
     if (currentY + estimatedSummaryHeight > pageHeight - bottomMargin) {
       doc.addPage();
       drawPageDecorations();
@@ -589,6 +601,10 @@ export const generateInvoicePdf = async (req, res) => {
     }
 
     addSummaryRow("Grand Total", `Rs. ${withRupee(bill.grand_total)}`, true);
+
+    if (bill.payment_mode) {
+      addSummaryRow("Payment Mode", String(bill.payment_mode));
+    }
 
     // === SYSTEM GENERATED NOTICE ===
     let noticeY = summaryY + 20;
@@ -773,6 +789,9 @@ export const generateThermalInvoicePdf = async (req, res) => {
     // === Invoice Meta ===
     printLine("Invoice No:", bill.invoice_number);
     printLine("Date:", formatDate(bill.invoice_date));
+    if (bill.payment_mode) {
+      printLine("Payment Mode:", bill.payment_mode);
+    }
     doc.moveDown(0.3);
 
     // === Bill From / To ===
@@ -1005,6 +1024,13 @@ export const generateThermalInvoicePdf = async (req, res) => {
     doc.moveDown(0.4);
     drawLine();
     doc.moveDown(0.3);
+
+    if (bill.payment_mode) {
+      printLine("Payment Mode:", bill.payment_mode, { bold: true });
+      doc.moveDown(0.3);
+      drawLine();
+      doc.moveDown(0.3);
+    }
 
     // === Notes & Terms ===
     // if (bill.notes || bill.terms) {

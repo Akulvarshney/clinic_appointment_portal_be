@@ -59,11 +59,44 @@ export const getKPIDataService = async (orgId, timezone = "Asia/Kolkata") => {
     },
   });
 
+  const todaySalesAgg = await Prisma.bills.aggregate({
+    _sum: { grand_total: true },
+    where: {
+      organization_id: orgId,
+      is_valid: true,
+      bill_type: "INVOICE",
+      billStatus: { not: "DELETED" },
+      created_at: {
+        gte: todayStart,
+        lte: todayEnd,
+      },
+    },
+  });
+
+  const monthSalesAgg = await Prisma.bills.aggregate({
+    _sum: { grand_total: true },
+    where: {
+      organization_id: orgId,
+      is_valid: true,
+      bill_type: "INVOICE",
+      billStatus: { not: "DELETED" },
+      created_at: {
+        gte: monthStart,
+        lte: monthEnd,
+      },
+    },
+  });
+
+  const totalSaleToday = parseFloat(todaySalesAgg._sum.grand_total || 0);
+  const totalSaleThisMonth = parseFloat(monthSalesAgg._sum.grand_total || 0);
+
   const kpiData = [
     { title: "Total Clients", amount: totalClients },
     { title: "Today Appointments", amount: todayAppointments },
     { title: "Today's Reminders", amount: todaysReminder },
     { title: "New Clients this month", amount: clientsBookedThisMonth },
+    { title: "Total Sale Today", amount: totalSaleToday },
+    { title: "Total Sale this month", amount: totalSaleThisMonth },
   ];
 
   return kpiData;

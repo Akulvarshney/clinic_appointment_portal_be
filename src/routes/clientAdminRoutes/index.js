@@ -10,9 +10,11 @@ import inventoryRoutes from "./inventoryManagementRoutes.js";
 import feedbackRoutes from "./feedbackRoutes.js";
 import whatsappRoutes from "./whatsappRoutes.js";
 import surveyAdminRoutes from "./surveyAdminRoutes.js";
+import { resetPasswordController } from "../../controller/userMgmtController.js";
 
 const router = Router();
 
+router.post("/resetpassword", resetPasswordController);
 router.use("/userMgmt", usermgmtRoutes);
 router.use("/resourceManagement", resourceManagement);
 router.use("/serviceManagement", serviceManagement);

@@ -162,6 +162,7 @@ export const createInvoice = async (req, res) => {
       round_off_enabled,
       bill_type = "INVOICE",
       status = "SUBMITTED",
+      payment_mode,
       line_items,
     } = req.body;
 
@@ -247,6 +248,7 @@ export const createInvoice = async (req, res) => {
           round_off_enabled: round_off_enabled === true,
           bill_type,
           status,
+          payment_mode: payment_mode || null,
           bank_charges: bankCharges,
           brand_name_text: organizationBillDetails.billing_brand_name,
           is_valid: true,
@@ -286,6 +288,7 @@ export const createInvoice = async (req, res) => {
         due_date: result.due_date,
         grand_total: result.grand_total,
         status: result.status,
+        payment_mode: result.payment_mode,
         created_at: result.created_at,
       },
     });
@@ -335,6 +338,7 @@ export const createQuotation = async (req, res) => {
       round_off_enabled,
       bill_type = "QUOTATION",
       status = "SUBMITTED",
+      payment_mode,
       line_items,
     } = req.body;
 
@@ -429,6 +433,7 @@ export const createQuotation = async (req, res) => {
       bill_from_text,
       notes,
       terms,
+      payment_mode: payment_mode || null,
       bank_charges: bankCharges,
       round_off_enabled: round_off_enabled === true,
       bill_type,
@@ -493,6 +498,7 @@ export const createQuotation = async (req, res) => {
         due_date: result.due_date,
         grand_total: result.grand_total,
         status: result.status,
+        payment_mode: result.payment_mode,
         created_at: result.created_at,
         updated_at: result.updated_at,
       },
@@ -591,6 +597,7 @@ export const getInvoices = async (req, res) => {
         invoice_reference: true,
         bill_to_text: true,
         bill_type: true,
+        payment_mode: true,
         clients: {
           select: {
             id: true,
@@ -630,6 +637,7 @@ export const getInvoices = async (req, res) => {
         final_amount: bill.grand_total,
         status: bill.status,
         billStatus: bill.billStatus,
+        payment_mode: bill.payment_mode,
         invoice_reference: bill.invoice_reference
           ? await getInvoiceReference(bill.invoice_reference)
           : null,
@@ -688,6 +696,7 @@ export const getClientBills = async (req, res) => {
         status: true,
         billStatus: true,
         bill_type: true,
+        payment_mode: true,
         bill_to_text: true,
         invoice_reference: true,
       },
@@ -706,6 +715,7 @@ export const getClientBills = async (req, res) => {
         final_amount: bill.grand_total,
         status: bill.status,
         billStatus: bill.billStatus,
+        payment_mode: bill.payment_mode,
         invoice_reference: bill.invoice_reference
           ? await getInvoiceReference(bill.invoice_reference)
           : null,
@@ -781,7 +791,8 @@ export const saveAsInvoices = async (req, res) => {
           total_sgst: quotation.total_sgst,
           total_tax: quotation.total_tax,
           brand_name_text: quotation.brand_name_text,
-          bank_charges: quotation.bank_charges
+          bank_charges: quotation.bank_charges,
+          payment_mode: quotation.payment_mode || null
         },
       });
 
