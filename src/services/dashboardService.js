@@ -2,104 +2,97 @@ import { DateTime } from "luxon";
 import Prisma from "../prisma.js";
 import { startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
 
-export const getKPIDataService = async (orgId, timezone = "Asia/Kolkata") => {
-  const totalClients = await Prisma.client_organization_category.count({
-    where: { organization_id: orgId },
-  });
-
-  console.log("totalClients>>> ", totalClients);
-  const now = DateTime.now().setZone(timezone);
-
+export const getKPIDataService = async (
+  orgId,
+  timezone = "Asia/Kolkata",
+  allowedFeatures = new Set()
+) => {
+  const now = DateTime.now().setZone(timezone || "Asia/Kolkata");
   const todayStart = now.startOf("day").toUTC().toJSDate();
   const todayEnd = now.endOf("day").toUTC().toJSDate();
-
-  console.log("Timezone:", timezone);
-  console.log("Appointments start (UTC):", todayStart.toISOString());
-  console.log("Appointments end (UTC):", todayEnd.toISOString());
-
-  const todayAppointments = await Prisma.appointments.count({
-    where: {
-      organization_id: orgId,
-      date_time: {
-        gte: todayStart,
-        lte: todayEnd,
-      },
-      is_cancelled: false,
-      is_valid: true,
-      resources: {
-        status: {
-          not: "DISABLED",
-        },
-      },
-    },
-  });
-
-  const todayDateStr = now.toFormat("yyyy-LL-dd");
-
-  console.log("Reminders date (local):", todayDateStr);
-
-  const todaysReminder = await Prisma.reminder.count({
-    where: {
-      organization_id: orgId,
-      reminderdate: new Date(todayDateStr),
-      is_valid: true,
-    },
-  });
-
   const monthStart = now.startOf("month").toUTC().toJSDate();
   const monthEnd = now.endOf("month").toUTC().toJSDate();
+  const todayDateStr = now.toFormat("yyyy-LL-dd");
 
-  const clientsBookedThisMonth = await Prisma.client_organization_category.count({
-    where: {
-      organization_id: orgId,
-      created_at: {
-        gte: monthStart,
-        lte: monthEnd,
+  const salesBetween = async (gte, lte) => {
+    const agg = await Prisma.bills.aggregate({
+      _sum: { grand_total: true },
+      where: {
+        organization_id: orgId,
+        is_valid: true,
+        bill_type: "INVOICE",
+        billStatus: { not: "DELETED" },
+        created_at: { gte, lte },
       },
+    });
+    return parseFloat(agg._sum.grand_total || 0);
+  };
+
+  // Each KPI is tied to a DASHBOARD feature. Order here = order on the dashboard.
+  const kpiDefinitions = [
+    {
+      feature: "KPI_TOTAL_CLIENTS",
+      title: "Total Clients",
+      compute: () =>
+        Prisma.client_organization_category.count({
+          where: { organization_id: orgId },
+        }),
     },
-  });
-
-  const todaySalesAgg = await Prisma.bills.aggregate({
-    _sum: { grand_total: true },
-    where: {
-      organization_id: orgId,
-      is_valid: true,
-      bill_type: "INVOICE",
-      billStatus: { not: "DELETED" },
-      created_at: {
-        gte: todayStart,
-        lte: todayEnd,
-      },
+    {
+      feature: "KPI_TODAY_APPOINTMENTS",
+      title: "Today Appointments",
+      compute: () =>
+        Prisma.appointments.count({
+          where: {
+            organization_id: orgId,
+            date_time: { gte: todayStart, lte: todayEnd },
+            is_cancelled: false,
+            is_valid: true,
+            resources: { status: { not: "DISABLED" } },
+          },
+        }),
     },
-  });
-
-  const monthSalesAgg = await Prisma.bills.aggregate({
-    _sum: { grand_total: true },
-    where: {
-      organization_id: orgId,
-      is_valid: true,
-      bill_type: "INVOICE",
-      billStatus: { not: "DELETED" },
-      created_at: {
-        gte: monthStart,
-        lte: monthEnd,
-      },
+    {
+      feature: "KPI_TODAY_REMINDERS",
+      title: "Today's Reminders",
+      compute: () =>
+        Prisma.reminder.count({
+          where: {
+            organization_id: orgId,
+            reminderdate: new Date(todayDateStr),
+            is_valid: true,
+          },
+        }),
     },
-  });
-
-  const totalSaleToday = parseFloat(todaySalesAgg._sum.grand_total || 0);
-  const totalSaleThisMonth = parseFloat(monthSalesAgg._sum.grand_total || 0);
-
-  const kpiData = [
-    { title: "Total Clients", amount: totalClients },
-    { title: "Today Appointments", amount: todayAppointments },
-    { title: "Today's Reminders", amount: todaysReminder },
-    { title: "New Clients this month", amount: clientsBookedThisMonth },
-    { title: "Total Sale Today", amount: totalSaleToday },
-    { title: "Total Sale this month", amount: totalSaleThisMonth },
+    {
+      feature: "KPI_NEW_CLIENTS_THIS_MONTH",
+      title: "New Clients this month",
+      compute: () =>
+        Prisma.client_organization_category.count({
+          where: {
+            organization_id: orgId,
+            created_at: { gte: monthStart, lte: monthEnd },
+          },
+        }),
+    },
+    {
+      feature: "KPI_TOTAL_SALE_TODAY",
+      title: "Total Sale Today",
+      compute: () => salesBetween(todayStart, todayEnd),
+    },
+    {
+      feature: "KPI_TOTAL_SALE_THIS_MONTH",
+      title: "Total Sale this month",
+      compute: () => salesBetween(monthStart, monthEnd),
+    },
   ];
 
-  return kpiData;
+  // Only query and return KPIs the user is permitted to see.
+  const permitted = kpiDefinitions.filter((k) => allowedFeatures.has(k.feature));
+
+  return Promise.all(
+    permitted.map(async (k) => ({ title: k.title, amount: await k.compute() }))
+  );
 };
 
 export const getBarChartDataService = async (orgId) => {

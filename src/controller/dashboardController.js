@@ -4,11 +4,13 @@ import {
   getPieChartDataService,
   getBarChartDataService,
 } from "../services/dashboardService.js";
+import { getAllowedFeaturesForUser } from "../util/permissions.js";
 
 export const getKPIData = async (req, res) => {
   const { orgId } = req.query;
   try {
-    const response = await getKPIDataService(orgId);
+    const allowed = await getAllowedFeaturesForUser(req.userId, orgId, "DASHBOARD");
+    const response = await getKPIDataService(orgId, undefined, allowed);
     sendResponse(res, { message: "Getting Data successfully", response }, 200);
   } catch (err) {
     console.log("Error here   ", err.message);

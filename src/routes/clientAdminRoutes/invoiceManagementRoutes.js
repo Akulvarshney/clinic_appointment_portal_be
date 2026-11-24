@@ -9,6 +9,7 @@ import {
   saveAsInvoices,
 } from "../../controller/invoicesController.js";
 import { checkOrgInfoComplete } from "../../middleware/invoiceMiddleware.js";
+import { downloadInvoiceReportController } from "../../controller/invoiceReportController.js";
 // import { generateInvoicePdf } from "../../controller/invoicePdfGeneratorController.js";
 
 const router = Router();
@@ -20,6 +21,7 @@ router.get("/getClientBills", getClientBills);
 router.post("/saveAsInvoices", saveAsInvoices);
 router.get("/billDetail/:id", getBillById);
 router.put("/deleteBill", deleteBill);
+router.get("/downloadInvoiceReport", downloadInvoiceReportController);
 // router.get("/invoice/:billid", generateInvoicePdf);
 
 export default router;

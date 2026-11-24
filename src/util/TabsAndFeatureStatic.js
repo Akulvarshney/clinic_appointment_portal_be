@@ -6,6 +6,13 @@ export const tabFeatureConfig = [
     tab_path: "/dashboard",
     features: [
       { feature_unique_name: "VIEW_DASHBOARD", feature_name: "View Dashboard" },
+      // KPI cards — enforced in the BE (dashboardService.getKPIDataService)
+      { feature_unique_name: "KPI_TOTAL_CLIENTS", feature_name: "KPI: Total Clients" },
+      { feature_unique_name: "KPI_TODAY_APPOINTMENTS", feature_name: "KPI: Today Appointments" },
+      { feature_unique_name: "KPI_TODAY_REMINDERS", feature_name: "KPI: Today's Reminders" },
+      { feature_unique_name: "KPI_NEW_CLIENTS_THIS_MONTH", feature_name: "KPI: New Clients this month" },
+      { feature_unique_name: "KPI_TOTAL_SALE_TODAY", feature_name: "KPI: Total Sale Today" },
+      { feature_unique_name: "KPI_TOTAL_SALE_THIS_MONTH", feature_name: "KPI: Total Sale this month" },
     ],
   },
   {
@@ -167,6 +174,10 @@ export const tabFeatureConfig = [
       { feature_unique_name: "PRINT_INVOICES", feature_name: "Print Invoices" },
       { feature_unique_name: "EDIT_QUOTATION", feature_name: "Edit Quotation" },
       { feature_unique_name: "DELETE_BILL", feature_name: "Delete Bill" },
+      {
+        feature_unique_name: "DOWNLOAD_INVOICE_REPORT",
+        feature_name: "Download Invoice Report",
+      },
 
     ],
   },
